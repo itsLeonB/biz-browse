@@ -1,0 +1,11 @@
+# Triage labels
+
+| Role | Tracker label | Meaning |
+| --- | --- | --- |
+| `needs-triage` | `needs-triage` | Maintainer needs to review the issue |
+| `needs-info` | `needs-info` | Waiting for more information |
+| `ready-for-agent` | `ready-for-agent` | Specified and ready for an agent |
+| `ready-for-human` | `ready-for-human` | Needs a human to implement |
+| `wontfix` | `wontfix` | Will not be done |
+
+When a skill names a role, use its tracker label.
