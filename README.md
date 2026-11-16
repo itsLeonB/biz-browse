@@ -1,4 +1,4 @@
 # biz-browse
 
-- [Agreed MVP scope](docs/mvp-scope.md)
+- [Agreed MVP spec](https://github.com/itsLeonB/biz-browse/issues/1)
 - [Domain glossary](GLOSSARY.md)
