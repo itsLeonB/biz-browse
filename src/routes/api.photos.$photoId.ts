@@ -27,7 +27,10 @@ export const Route = createFileRoute("/api/photos/$photoId")({
           return new Response("Forbidden", { status: 403 });
         if (!z.uuid().safeParse(params.photoId).success)
           return new Response("Not found", { status: 404 });
-        return (await deletePhoto(params.photoId))
+        const result = await deletePhoto(params.photoId);
+        if (result === "last-published-photo")
+          return Response.json({ code: "LAST_PUBLISHED_PHOTO" }, { status: 409 });
+        return result === "deleted"
           ? new Response(null, { status: 204 })
           : new Response("Not found", { status: 404 });
       },

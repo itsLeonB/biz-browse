@@ -178,15 +178,13 @@ test(
       assert.equal((await save(admin2, { ...draft, id, [field]: " " })).status, 400, field);
     }
     assert.match(await (await fetch(detail)).text(), /Kedai uji/);
-    assert.equal(
-      (
-        await fetch(`${base}/api/photos/${photo}`, {
-          method: "DELETE",
-          headers: { ...headers(admin1), Origin: new URL(base).origin },
-        })
-      ).status,
-      404,
-    );
+    response = await fetch(`${base}/api/photos/${photo}`, {
+      method: "DELETE",
+      headers: { ...headers(admin1), Origin: new URL(base).origin },
+    });
+    assert.equal(response.status, 409);
+    assert.deepEqual(await response.json(), { code: "LAST_PUBLISHED_PHOTO" });
+    assert.equal((await fetch(`${base}/api/photos/${photo}`)).status, 200);
     response = await fetch(`${base}/api/photos`, {
       method: "POST",
       headers: {
