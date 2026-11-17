@@ -11,7 +11,10 @@ export function waitForSocket(socket, timeout = 10_000) {
     const open = () => finish();
     const close = () => finish(new Error("Chrome debugging socket closed before opening"));
     const errorEvent = () => finish(new Error("Chrome debugging socket error before opening"));
-    const timer = setTimeout(() => finish(new Error("Chrome debugging socket timed out opening")), timeout);
+    const timer = setTimeout(
+      () => finish(new Error("Chrome debugging socket timed out opening")),
+      timeout,
+    );
     socket.addEventListener("open", open);
     socket.addEventListener("close", close);
     socket.addEventListener("error", errorEvent);
