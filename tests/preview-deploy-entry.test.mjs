@@ -87,6 +87,8 @@ test("trusted preview deployment targets mapped resources and fails closed", () 
         const other = otherValue ? JSON.parse(otherValue) : null;
         const otherBytes = Buffer.from(JSON.stringify(other));
         const otherBlob = createHash('sha1').update('blob ' + otherBytes.length + '\\0').update(otherBytes).digest('hex');
+        const manualBytes = process.env.MANUAL_MAPPING ? Buffer.from(process.env.MANUAL_MAPPING) : null;
+        const manualBlob = manualBytes && createHash('sha1').update('blob ' + manualBytes.length + '\\0').update(manualBytes).digest('hex');
         const additional = Array.from({ length: Number(process.env.EXTRA_MAPPINGS || 0) }, (_, i) => {
           const id = i + 10;
           const base = JSON.parse(process.env.FAKE_MAPPING);
@@ -99,8 +101,9 @@ test("trusted preview deployment targets mapped resources and fails closed", () 
         let value = path.endsWith('/git/trees/' + 'd'.repeat(40)) ? { sha: 'a'.repeat(40), truncated: !!process.env.TRUNCATED_TREE, tree: [
           { type: 'blob', mode: '100644', path: '.github/preview-mappings/pr-7.json', sha: blob },
           ...(other ? [{ type: 'blob', mode: '100644', path: '.github/preview-mappings/pr-8.json', sha: otherBlob }] : []),
+          ...(manualBytes ? [{ type: 'blob', mode: '100644', path: '.github/manual-preview-mappings/pr-8.json', sha: manualBlob }] : []),
           ...additional.map(({ path, sha }) => ({ type: 'blob', mode: '100644', path, sha })),
-        ] } : requested ? { type: 'file', encoding: 'base64', content: requested.content.toString('base64'), size: requested.content.length, sha: requested.sha } : path.endsWith('/contents/.github/preview-mappings/pr-8.json') && other ? { type: 'file', encoding: 'base64', content: otherBytes.toString('base64'), size: otherBytes.length, sha: otherBlob } : path.endsWith('/repos/owner/repo') ? repo :
+        ] } : path.endsWith('/contents/.github/manual-preview-mappings/pr-8.json') && manualBytes ? { type: 'file', encoding: 'base64', content: manualBytes.toString('base64'), size: manualBytes.length, sha: manualBlob } : requested ? { type: 'file', encoding: 'base64', content: requested.content.toString('base64'), size: requested.content.length, sha: requested.sha } : path.endsWith('/contents/.github/preview-mappings/pr-8.json') && other ? { type: 'file', encoding: 'base64', content: otherBytes.toString('base64'), size: otherBytes.length, sha: otherBlob } : path.endsWith('/repos/owner/repo') ? repo :
           path.endsWith('/git/ref/heads/main') ? { ref: 'refs/heads/main', object: { type: 'commit', sha: (afterUpload && process.env.REF_RACE && ++refReads === 2 ? 'e' : 'd').repeat(40) } } :
           path.endsWith('/contents/.github/preview-mappings/pr-7.json') && new URL(url).searchParams.get('ref') === 'd'.repeat(40) && !(afterUpload && process.env.MISSING_MAPPING) ? { type: 'file', encoding: 'base64', content: bytes.toString('base64'), size: bytes.length, sha: afterUpload && process.env.BAD_BLOB ? 'f'.repeat(40) : blob } :
           path.endsWith('/pulls/7') ? (process.env.NEW_HEAD && existsSync(process.env.UPLOADED) ? { ...pr, head: { ...pr.head, sha: 'c'.repeat(40) } } : pr) :
@@ -133,6 +136,18 @@ test("trusted preview deployment targets mapped resources and fails closed", () 
     encoding: "utf8",
   });
   assert.equal(manifest.status, 0, manifest.stderr);
+  const spacedRoot = join(dir, "scripts with spaces #1");
+  mkdirSync(spacedRoot);
+  cpSync("scripts/preview-asset-manifest.mjs", join(spacedRoot, "preview-asset-manifest.mjs"));
+  cpSync("scripts/preview-artifact.mjs", join(spacedRoot, "preview-artifact.mjs"));
+  symlinkSync(join(process.cwd(), "node_modules"), join(spacedRoot, "node_modules"));
+  const spacedManifest = spawnSync(
+    process.execPath,
+    [join(spacedRoot, "preview-asset-manifest.mjs"), artifact],
+    { encoding: "utf8" },
+  );
+  assert.equal(spacedManifest.status, 0, spacedManifest.stderr);
+  assert.deepEqual(JSON.parse(spacedManifest.stdout), JSON.parse(manifest.stdout));
   writeFileSync(assetManifest, manifest.stdout);
   const manifestHash = createHash("sha256").update(manifest.stdout).digest("hex");
   const run = (input = event, extra = {}) => {
@@ -238,6 +253,28 @@ test("trusted preview deployment targets mapped resources and fails closed", () 
         assert.equal(result.status, 0, result.stderr);
       }
     }
+    for (const conflict of [
+      { ...other, preview: { ...other.preview, project: mapping.preview.project } },
+      { ...other, live: { ...other.live, branch: mapping.preview.branch } },
+      {
+        ...other,
+        preview: { ...other.preview, project: mapping.live.project, branch: mapping.live.branch },
+      },
+    ]) {
+      ({ result, calls } = run(event, { OTHER_MAPPING: JSON.stringify(conflict) }));
+      assert.notEqual(result.status, 0);
+      assert.equal(calls.length, 0);
+    }
+    const manual = {
+      cloudflare_account_id: "b".repeat(32),
+      mapping: { ...other, cloudflare_account_id: undefined },
+    };
+    ({ result } = run(event, { MANUAL_MAPPING: JSON.stringify(manual) }));
+    assert.equal(result.status, 0, result.stderr);
+    manual.mapping.preview = { ...manual.mapping.preview, project: mapping.preview.project };
+    ({ result, calls } = run(event, { MANUAL_MAPPING: JSON.stringify(manual) }));
+    assert.notEqual(result.status, 0);
+    assert.equal(calls.length, 0);
     ({ result } = run(event, { OTHER_MAPPING: JSON.stringify(other) }));
     assert.equal(result.status, 0, result.stderr);
     ({ result } = run(event, {

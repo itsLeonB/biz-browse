@@ -17,12 +17,12 @@ docker run --rm --log-driver none --user 1000:1000 --cap-drop ALL --security-opt
   node@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54 \
   sh -eu -c '
     mkdir -p "$HOME" /tmp/app
-    cp -a /source/. /tmp/app/
+    cp -R /source/. /tmp/app/
     printf %s "$BUILD_CONFIG" | base64 -d > /tmp/preview-wrangler.json
     unset BUILD_CONFIG
     export PREVIEW_WRANGLER_CONFIG=/tmp/preview-wrangler.json
     cd /tmp/app
     npm ci
     npm run build
-    cp -a dist/. /output/
+    cp -R dist/. /output/
   '

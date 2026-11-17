@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { extname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { hash as blake3 } from "blake3-wasm";
 
 // Run only in the trusted packaging job, without provider credentials.
@@ -10,7 +11,7 @@ try {
   const root = process.argv[2];
   const result = spawnSync(
     process.execPath,
-    [new URL("./preview-artifact.mjs", import.meta.url).pathname, root, "--validate-only"],
+    [fileURLToPath(new URL("./preview-artifact.mjs", import.meta.url)), root, "--validate-only"],
     { encoding: "utf8" },
   );
   if (result.status !== 0) throw new Error();

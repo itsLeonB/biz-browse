@@ -44,7 +44,7 @@ test("manual preview uses the approved mapping and never prints provider secrets
     );
     writeFileSync(
       join(bin, "git"),
-      `#!/bin/sh\nif [ "$1" = rev-parse ]; then printf '%s\\n' '${"b".repeat(40)}'; else /bin/cat '${join(dir, "mapping")}'; fi\n`,
+      `#!/bin/sh\nif [ "$1" = rev-parse ]; then printf '%s\\n' '${"b".repeat(40)}'; elif [ "$1" = ls-tree ]; then printf '100644 blob ${"a".repeat(40)}\\t.github/manual-preview-mappings/pr-7.json\\n'; if [ -f '${join(dir, "other")}' ]; then printf '100644 blob ${"a".repeat(40)}\\t.github/preview-mappings/pr-8.json\\n'; fi; else case "$2" in *pr-8.json) /bin/cat '${join(dir, "other")}' ;; *) /bin/cat '${join(dir, "mapping")}' ;; esac; fi\n`,
       { mode: 0o755 },
     );
     writeFileSync(
@@ -80,6 +80,34 @@ test("manual preview uses the approved mapping and never prints provider secrets
     assert.match(readFileSync(log, "utf8"), /secret put DATABASE_URL.*--name worker-pr-7/);
     assert.match(readFileSync(log, "utf8"), /deploy.*--name worker-pr-7/);
     rmSync(log);
+    const other = {
+      ...mapping,
+      preview_id: "pr-8",
+      preview: {
+        ...mapping.preview,
+        project: "other",
+        worker: "worker-pr-8",
+        bucket: "bucket-pr-8",
+      },
+    };
+    for (const conflict of [
+      { ...other, preview: { ...other.preview, project: mapping.preview.project } },
+      { ...other, live: { ...other.live, branch: mapping.preview.branch } },
+      {
+        ...other,
+        preview: { ...other.preview, project: mapping.live.project, branch: mapping.live.branch },
+      },
+    ]) {
+      writeFileSync(join(dir, "other"), JSON.stringify(conflict));
+      result = run(envelope);
+      assert.notEqual(result.status, 0);
+      assert.throws(() => readFileSync(log));
+    }
+    writeFileSync(join(dir, "other"), JSON.stringify(other));
+    result = run(envelope);
+    assert.equal(result.status, 0, result.stderr);
+    rmSync(log);
+    rmSync(join(dir, "other"));
     for (const value of [
       {
         ...envelope,

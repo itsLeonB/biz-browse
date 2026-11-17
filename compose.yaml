@@ -6,7 +6,7 @@ services:
       POSTGRES_PASSWORD: local_test_only
       POSTGRES_DB: directory_test
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U directory_test -d directory_test"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U directory_test -d directory_test"]
       interval: 2s
       timeout: 3s
       retries: 30

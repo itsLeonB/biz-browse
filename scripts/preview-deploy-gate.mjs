@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { checkNeonTargets } from "./preview-mapping-targets.mjs";
 
 try {
   const expected = JSON.parse(process.env.PREVIEW_IDENTITY);
@@ -64,24 +65,30 @@ try {
   )
     throw new Error();
   const prefix = ".github/preview-mappings/";
-  const entries = tree.tree.filter((entry) => entry.path?.startsWith(prefix));
+  const manualPrefix = ".github/manual-preview-mappings/";
+  const entries = tree.tree.filter(
+    (entry) => entry.path?.startsWith(prefix) || entry.path?.startsWith(manualPrefix),
+  );
   if (!entries.length || entries.length > 20) throw new Error();
   const names = new Set();
   const targets = new Set();
   const liveTargets = new Set();
+  const mappings = [];
   for (const entry of entries) {
-    const name = entry.path.slice(prefix.length);
+    const manual = entry.path.startsWith(manualPrefix);
+    const name = entry.path.slice((manual ? manualPrefix : prefix).length);
+    const entryName = entry.path;
     const match = /^(pr-[1-9][0-9]*)\.json$/.exec(name);
     if (
       !match ||
-      names.has(name) ||
+      names.has(entryName) ||
       entry.type !== "blob" ||
       entry.mode !== "100644" ||
       !/^[a-f0-9]{40}$/.test(entry.sha ?? "")
     )
       throw new Error();
-    names.add(name);
-    const file = await api(`/contents/${prefix}${name}?ref=${commit}`);
+    names.add(entryName);
+    const file = await api(`/contents/${entry.path}?ref=${commit}`);
     if (file.type !== "file" || file.encoding !== "base64" || typeof file.content !== "string")
       throw new Error();
     const encoded = file.content.replace(/\n/g, "");
@@ -96,29 +103,36 @@ try {
       entry.sha !== blob
     )
       throw new Error();
-    const mapping = JSON.parse(bytes);
-    if (!/^[a-f0-9]{32}$/.test(mapping.cloudflare_account_id ?? "")) throw new Error();
+    const parsed = JSON.parse(bytes);
+    if (manual && Object.keys(parsed).sort().join() !== "cloudflare_account_id,mapping")
+      throw new Error();
+    const mapping = manual ? parsed.mapping : parsed;
+    const account = manual ? parsed.cloudflare_account_id : mapping.cloudflare_account_id;
+    if (!/^[a-f0-9]{32}$/.test(account ?? "")) throw new Error();
     const validation = spawnSync(
       process.execPath,
       [new URL("./preview-config.mjs", import.meta.url).pathname, "-", match[1]],
-      { input: bytes, encoding: "utf8" },
+      { input: manual ? JSON.stringify(mapping) : bytes, encoding: "utf8" },
     );
     if (validation.status !== 0) throw new Error();
+    mappings.push(mapping);
     for (const field of ["worker", "bucket"]) {
-      const target = `${mapping.cloudflare_account_id}/${field}/${mapping.preview[field]}`;
-      const liveTarget = `${mapping.cloudflare_account_id}/${field}/${mapping.live[field]}`;
+      const target = `${account}/${field}/${mapping.preview[field]}`;
+      const liveTarget = `${account}/${field}/${mapping.live[field]}`;
       if (targets.has(target) || liveTargets.has(target) || targets.has(liveTarget))
         throw new Error();
       targets.add(target);
       liveTargets.add(liveTarget);
     }
     if (
+      !manual &&
       name === `pr-${actual.pr}.json` &&
       createHash("sha256").update(bytes).digest("hex") !== expected.mapping_sha256
     )
       throw new Error();
   }
-  if (!names.has(`pr-${actual.pr}.json`)) throw new Error();
+  if (!names.has(`${prefix}pr-${actual.pr}.json`)) throw new Error();
+  checkNeonTargets(mappings);
   const [latestRef, latestRepository] = await Promise.all([api(refPath), api("")]);
   if (
     latestRef.ref !== ref.ref ||
