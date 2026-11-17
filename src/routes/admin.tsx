@@ -2,6 +2,25 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { UserButton } from "@clerk/tanstack-react-start";
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { PlusIcon, SaveIcon, UploadIcon, Trash2Icon, InfoIcon } from "lucide-react";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Field,
+  FieldGroup,
+  FieldLabel,
+  FieldSet,
+  FieldLegend,
+  FieldDescription,
+} from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
+import { cn } from "@/lib/utils";
 
 const requireAdmin = createServerFn().handler(async () => {
   const { isAdmin } = await import("../server/auth.server");
@@ -80,6 +99,7 @@ function Photos({ listingId }: { listingId: string }) {
     }
   }
   async function remove(id: string) {
+    if (!window.confirm("Hapus foto ini? Foto yang dihapus tidak dapat dikembalikan.")) return;
     try {
       const response = await fetch(`/api/photos/${id}`, { method: "DELETE" });
       if (response.status === 409) {
@@ -103,34 +123,56 @@ function Photos({ listingId }: { listingId: string }) {
   return (
     <section aria-labelledby="photos-heading">
       <h2 id="photos-heading">Foto yang disetujui pemilik</h2>
-      <ul>
+      <ul className="admin-photos">
         {photos.map((photo, index) => (
           <li key={photo.id}>
-            <img src={`/api/photos/${photo.id}`} alt="Foto bisnis" width="200" />
-            <button
+            <img
+              src={`/api/photos/${photo.id}`}
+              alt={`Foto bisnis ${index + 1}`}
+              width="400"
+              height="300"
+              loading="lazy"
+            />
+            <Button
+              variant="outline"
               type="button"
               aria-label={`Hapus foto ${index + 1}`}
               onClick={() => remove(photo.id)}
             >
+              <Trash2Icon aria-hidden="true" data-icon="inline-start" />
               Hapus foto
-            </button>
+            </Button>
           </li>
         ))}
       </ul>
       <form onSubmit={upload} aria-labelledby="photos-heading">
-        <label htmlFor="photo">Pilih foto JPEG, PNG, atau WebP (maks. 5 MB)</label>
-        <input
-          id="photo"
-          name="photo"
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          required
-        />
-        <button type="submit" disabled={uploading}>
-          Unggah foto
-        </button>
+        <FieldGroup>
+          <Field>
+            <FieldLabel htmlFor="photo">Pilih foto JPEG, PNG, atau WebP (maks. 5 MB)</FieldLabel>
+            <Input
+              id="photo"
+              name="photo"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              required
+            />
+            <FieldDescription>
+              Gunakan foto yang pemilik izinkan untuk ditampilkan kepada publik.
+            </FieldDescription>
+          </Field>
+          <Button className="self-start" type="submit" disabled={uploading}>
+            {uploading ? (
+              <Spinner aria-hidden="true" data-icon="inline-start" />
+            ) : (
+              <UploadIcon aria-hidden="true" data-icon="inline-start" />
+            )}
+            Unggah foto
+          </Button>
+        </FieldGroup>
       </form>
-      <p role="status">{message}</p>
+      <p className="status-line mt-3" role="status">
+        {message}
+      </p>
     </section>
   );
 }
@@ -173,6 +215,15 @@ function Admin() {
       setStatus("Tidak dapat memuat draf. Muat ulang halaman untuk mencoba lagi."),
     );
   }, []);
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy || !data) return;
@@ -233,111 +284,228 @@ function Admin() {
     }
   }
   return (
-    <main>
-      <header>
-        <h1>Listing bisnis</h1>
+    <main id="main-content" tabIndex={-1} className="page-shell">
+      <header className="admin-heading">
+        <div className="flex flex-col gap-2">
+          <h1>Listing bisnis</h1>
+          <p className="muted-copy">Kelola draf dan listing publik.</p>
+        </div>
         <UserButton />
       </header>
-      <p>
-        Draf bersifat pribadi. Nama bisnis yang diterbitkan bersifat publik. Simpan perubahan
-        sebelum menerbitkan.
+      <Alert role="note">
+        <InfoIcon aria-hidden="true" />
+        <AlertTitle>Periksa sebelum menerbitkan</AlertTitle>
+        <AlertDescription>
+          Draf bersifat pribadi. Nama bisnis yang diterbitkan bersifat publik. Simpan perubahan
+          sebelum menerbitkan.
+        </AlertDescription>
+      </Alert>
+      <p className="status-line mt-3" role="status">
+        {status}
       </p>
-      <button
-        type="button"
-        disabled={busy}
-        onClick={() => {
-          setDraft({ id: "" });
-          setDirty(false);
-          setFormVersion((n) => n + 1);
-        }}
-      >
-        Draf baru
-      </button>
-      <ul>
-        {data?.listings.map((item) => (
-          <li key={String(item.id)}>
-            <button
+      <div className="admin-layout">
+        <aside aria-labelledby="drafts-heading">
+          <div className="flex flex-col gap-4">
+            <h2 id="drafts-heading">Daftar listing</h2>
+            <Button
+              variant="outline"
               type="button"
               disabled={busy}
               onClick={() => {
-                setDraft(item);
+                if (dirty && !window.confirm("Buang perubahan yang belum tersimpan?")) return;
+                setDraft({ id: "" });
                 setDirty(false);
                 setFormVersion((n) => n + 1);
               }}
             >
-              {item.business_name || "Draf tanpa nama"} {item.published ? "(publik)" : "(pribadi)"}
-            </button>
-          </li>
-        ))}
-      </ul>
-      <form
-        onSubmit={save}
-        onInput={() => {
-          editVersion.current++;
-          setDirty(true);
-        }}
-        key={formVersion}
-      >
-        <input type="hidden" name="id" value={String(draft.id || "")} />
-        {fields.map(([name, label]) => (
-          <p key={name}>
-            <label htmlFor={name}>{label}</label>
-            <br />
-            {name === "description" || name.startsWith("price_") || name.endsWith("_meaning") ? (
-              <textarea
-                id={name}
-                name={name}
-                defaultValue={String(draft[name] || "")}
-                maxLength={10000}
-              />
-            ) : (
-              <input
-                id={name}
-                name={name}
-                defaultValue={String(draft[name] || "")}
-                inputMode={
-                  name.endsWith("_amount") || name === "asking_price" ? "numeric" : undefined
-                }
-                maxLength={10000}
-              />
-            )}
-          </p>
-        ))}
-        {(["category", "city"] as const).map((type) => (
-          <p key={type}>
-            <label htmlFor={type}>{type === "category" ? "Kategori" : "Kota/kabupaten"}</label>
-            <br />
-            <select id={type} name={type + "_id"} defaultValue={String(draft[type + "_id"] || "")}>
-              <option value="">Pilih</option>
-              {data?.[type === "category" ? "categories" : "cities"].map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.name}
-                </option>
+              <PlusIcon aria-hidden="true" data-icon="inline-start" />
+              Draf baru
+            </Button>
+          </div>
+          {!data ? (
+            <div className="flex flex-col gap-3 mt-4" role="status">
+              <span className="sr-only">Memuat daftar listing…</span>
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-16 w-full" />
+            </div>
+          ) : data.listings.length === 0 ? (
+            <Empty>
+              <EmptyHeader>
+                <EmptyTitle>
+                  {refreshFailed ? "Daftar tidak dapat dimuat" : "Belum ada listing"}
+                </EmptyTitle>
+                <EmptyDescription>
+                  {refreshFailed
+                    ? "Muat ulang halaman untuk mencoba lagi."
+                    : "Pilih Draf baru untuk menambahkan bisnis."}
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          ) : (
+            <ul className="draft-list">
+              {data.listings.map((item) => (
+                <li key={String(item.id)}>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    aria-pressed={draft.id === item.id}
+                    onClick={() => {
+                      if (dirty && !window.confirm("Buang perubahan yang belum tersimpan?")) return;
+                      setDraft(item);
+                      setDirty(false);
+                      setFormVersion((n) => n + 1);
+                    }}
+                  >
+                    <span className="line-clamp-2">
+                      {item.business_name || "Draf tanpa nama"}{" "}
+                      <span className="sr-only">{item.published ? "(publik)" : "(pribadi)"}</span>
+                    </span>
+                    <Badge aria-hidden="true" variant={item.published ? "default" : "outline"}>
+                      {item.published ? "Publik" : "Pribadi"}
+                    </Badge>
+                  </button>
+                </li>
               ))}
-            </select>
-          </p>
-        ))}
-        <button type="submit" disabled={busy || !data}>
-          Simpan draf
-        </button>
-      </form>
-      {typeof draft.id === "string" && draft.id && <Photos key={draft.id} listingId={draft.id} />}
-      {draft.id &&
-        (draft.published ? (
-          <button type="button" disabled={busy} onClick={unpublish}>
-            Tarik listing dari publik
-          </button>
-        ) : (
-          <button type="button" disabled={busy || refreshFailed || dirty} onClick={publish}>
-            Terbitkan listing tersimpan
-          </button>
-        ))}
-      {draft.id && (
-        <p>
-          Alamat publik setelah diterbitkan: <a href={`/listings/${draft.id}`}>lihat listing</a>
-        </p>
-      )}
-      <p role="status">{status}</p>
+            </ul>
+          )}
+        </aside>
+        <div className="editor">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2>{draft.id ? "Edit listing" : "Draf baru"}</h2>
+            <Badge variant="outline">
+              {dirty ? "Perubahan belum tersimpan" : draft.published ? "Publik" : "Draf pribadi"}
+            </Badge>
+          </div>
+          <form
+            onSubmit={save}
+            onInput={() => {
+              editVersion.current++;
+              setDirty(true);
+            }}
+            key={formVersion}
+            autoComplete="off"
+          >
+            <input type="hidden" name="id" value={String(draft.id || "")} />
+            <FieldGroup>
+              {[
+                { title: "Informasi bisnis", items: fields.slice(0, 2) },
+                { title: "Harga dan kontak", items: fields.slice(2, 7) },
+                { title: "Angka keuangan (opsional)", items: fields.slice(7) },
+              ].map((section) => (
+                <FieldSet className="editor-section" key={section.title}>
+                  <FieldLegend>{section.title}</FieldLegend>
+                  {section.title === "Angka keuangan (opsional)" && (
+                    <FieldDescription>
+                      Jika Anda mengisi pendapatan atau laba, isi juga periode dan artinya. Angka
+                      ini dilaporkan pemilik, belum diverifikasi.
+                    </FieldDescription>
+                  )}
+                  <FieldGroup className="editor-fields">
+                    {section.items.map(([name, label]) => (
+                      <Field
+                        key={name}
+                        className={cn(
+                          (name === "description" || name === "whatsapp") && "md:col-span-2",
+                        )}
+                      >
+                        <FieldLabel htmlFor={name}>{label}</FieldLabel>
+                        {name === "description" ||
+                        name.startsWith("price_") ||
+                        name.endsWith("_meaning") ? (
+                          <Textarea
+                            id={name}
+                            name={name}
+                            defaultValue={String(draft[name] || "")}
+                            maxLength={10000}
+                          />
+                        ) : (
+                          <Input
+                            id={name}
+                            name={name}
+                            type={name === "whatsapp" ? "tel" : "text"}
+                            defaultValue={String(draft[name] || "")}
+                            inputMode={
+                              name.endsWith("_amount") || name === "asking_price"
+                                ? "numeric"
+                                : undefined
+                            }
+                            maxLength={10000}
+                          />
+                        )}
+                      </Field>
+                    ))}
+                  </FieldGroup>
+                </FieldSet>
+              ))}
+              <FieldSet className="editor-section">
+                <FieldLegend>Kategori dan lokasi</FieldLegend>
+                <FieldGroup className="editor-fields">
+                  {(["category", "city"] as const).map((type) => (
+                    <Field key={type}>
+                      <FieldLabel htmlFor={type}>
+                        {type === "category" ? "Kategori" : "Kota/kabupaten"}
+                      </FieldLabel>
+                      <NativeSelect
+                        id={type}
+                        name={type + "_id"}
+                        defaultValue={String(draft[type + "_id"] || "")}
+                      >
+                        <NativeSelectOption value="">Pilih</NativeSelectOption>
+                        {data?.[type === "category" ? "categories" : "cities"].map((option) => (
+                          <NativeSelectOption key={option.id} value={option.id}>
+                            {option.name}
+                          </NativeSelectOption>
+                        ))}
+                      </NativeSelect>
+                    </Field>
+                  ))}
+                </FieldGroup>
+              </FieldSet>
+              <div className="editor-actions">
+                <Button type="submit" disabled={busy || !data}>
+                  {busy ? (
+                    <Spinner aria-hidden="true" data-icon="inline-start" />
+                  ) : (
+                    <SaveIcon aria-hidden="true" data-icon="inline-start" />
+                  )}
+                  Simpan draf
+                </Button>
+                {dirty && <p className="muted-copy">Simpan sebelum menerbitkan.</p>}
+              </div>
+            </FieldGroup>
+          </form>
+          {typeof draft.id === "string" && draft.id && (
+            <Photos key={draft.id} listingId={draft.id} />
+          )}
+          {draft.id && (
+            <section className="flex flex-col gap-4" aria-labelledby="publication-heading">
+              <h2 id="publication-heading">Publikasi</h2>
+              <div className="editor-actions">
+                {draft.published ? (
+                  <Button variant="outline" type="button" disabled={busy} onClick={unpublish}>
+                    Tarik listing dari publik
+                  </Button>
+                ) : (
+                  <Button type="button" disabled={busy || refreshFailed || dirty} onClick={publish}>
+                    Terbitkan listing tersimpan
+                  </Button>
+                )}
+                {draft.published && (
+                  <a
+                    className={buttonVariants({ variant: "ghost" })}
+                    href={`/listings/${draft.id}`}
+                  >
+                    Lihat listing publik
+                  </a>
+                )}
+              </div>
+              <p className="muted-copy">
+                Persetujuan listing tidak memverifikasi klaim keuangan atau kepemilikan.
+              </p>
+            </section>
+          )}
+        </div>
+      </div>
     </main>
   );
 }
