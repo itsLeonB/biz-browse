@@ -1,7 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { UserButton } from "@clerk/tanstack-react-start";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 
 const requireAdmin = createServerFn().handler(async () => {
   const { isAdmin } = await import("../server/auth.server");
@@ -36,10 +36,13 @@ const fields = [
 function Photos({ listingId }: { listingId: string }) {
   const [photos, setPhotos] = useState<{ id: string }[]>([]);
   const [message, setMessage] = useState("");
+  const loadVersion = useRef(0);
   async function load() {
+    const version = ++loadVersion.current;
     const response = await fetch(`/api/photos?listing=${encodeURIComponent(listingId)}`);
     if (!response.ok) throw new Error();
-    setPhotos(await response.json());
+    const next = (await response.json()) as { id: string }[];
+    if (version === loadVersion.current) setPhotos(next);
   }
   useEffect(() => {
     load().catch(() => setMessage("Foto tidak dapat dimuat."));
@@ -81,8 +84,10 @@ function Photos({ listingId }: { listingId: string }) {
         }
       }
       if (!response.ok && response.status !== 404) throw new Error();
+      ++loadVersion.current;
       setPhotos((current) => current.filter((photo) => photo.id !== id));
       setMessage("Foto dihapus.");
+      load().catch(() => setMessage("Foto dihapus, tetapi daftar foto tidak dapat dimuat ulang."));
     } catch {
       setMessage("Foto tidak dapat dihapus.");
     }
@@ -91,10 +96,14 @@ function Photos({ listingId }: { listingId: string }) {
     <section aria-labelledby="photos-heading">
       <h2 id="photos-heading">Foto yang disetujui pemilik</h2>
       <ul>
-        {photos.map((photo) => (
+        {photos.map((photo, index) => (
           <li key={photo.id}>
             <img src={`/api/photos/${photo.id}`} alt="Foto bisnis" width="200" />
-            <button type="button" onClick={() => remove(photo.id)}>
+            <button
+              type="button"
+              aria-label={`Hapus foto ${index + 1}`}
+              onClick={() => remove(photo.id)}
+            >
               Hapus foto
             </button>
           </li>
@@ -123,6 +132,8 @@ function Admin() {
   const [formVersion, setFormVersion] = useState(0);
   const [busy, setBusy] = useState(false);
   const [refreshFailed, setRefreshFailed] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const editVersion = useRef(0);
   async function load() {
     const response = await fetch("/api/drafts");
     if (!response.ok) throw new Error("Tidak dapat memuat draf.");
@@ -134,15 +145,16 @@ function Admin() {
       return listing ? { ...current, published: listing.published } : current;
     });
   }
-  async function refresh(success: string) {
+  async function refresh(success: string | (() => string)) {
+    const message = () => (typeof success === "function" ? success() : success);
     try {
       await load();
-      setStatus(success);
+      setStatus(message());
     } catch {
       setData((current) => current && { ...current, listings: [] });
       setRefreshFailed(true);
       setStatus(
-        `${success} Daftar tidak dapat dimuat ulang. Muat ulang halaman untuk melihat daftar.`,
+        `${message()} Daftar tidak dapat dimuat ulang. Muat ulang halaman untuk melihat daftar.`,
       );
     }
   }
@@ -157,6 +169,7 @@ function Admin() {
     setBusy(true);
     setStatus("Menyimpan…");
     const form = new FormData(event.currentTarget);
+    const version = editVersion.current;
     try {
       const response = await fetch("/api/drafts", {
         method: "POST",
@@ -166,7 +179,13 @@ function Admin() {
       if (!response.ok) throw new Error();
       const saved = (await response.json()) as { id: string };
       setDraft((current) => ({ ...current, id: saved.id }));
-      await refresh("Listing tersimpan.");
+      await refresh(() => {
+        const changed = editVersion.current !== version;
+        setDirty(changed);
+        return changed
+          ? "Listing tersimpan. Perubahan terbaru belum tersimpan."
+          : "Listing tersimpan.";
+      });
     } catch {
       setStatus("Draf tidak tersimpan. Periksa data dan coba lagi.");
     } finally {
@@ -218,6 +237,7 @@ function Admin() {
         disabled={busy}
         onClick={() => {
           setDraft({ id: "" });
+          setDirty(false);
           setFormVersion((n) => n + 1);
         }}
       >
@@ -231,6 +251,7 @@ function Admin() {
               disabled={busy}
               onClick={() => {
                 setDraft(item);
+                setDirty(false);
                 setFormVersion((n) => n + 1);
               }}
             >
@@ -239,7 +260,14 @@ function Admin() {
           </li>
         ))}
       </ul>
-      <form onSubmit={save} key={formVersion}>
+      <form
+        onSubmit={save}
+        onInput={() => {
+          editVersion.current++;
+          setDirty(true);
+        }}
+        key={formVersion}
+      >
         <input type="hidden" name="id" value={String(draft.id || "")} />
         {fields.map(([name, label]) => (
           <p key={name}>
@@ -286,11 +314,11 @@ function Admin() {
       {typeof draft.id === "string" && draft.id && <Photos key={draft.id} listingId={draft.id} />}
       {draft.id &&
         (draft.published ? (
-          <button type="button" disabled={busy || refreshFailed} onClick={unpublish}>
+          <button type="button" disabled={busy} onClick={unpublish}>
             Tarik listing dari publik
           </button>
         ) : (
-          <button type="button" disabled={busy || refreshFailed} onClick={publish}>
+          <button type="button" disabled={busy || refreshFailed || dirty} onClick={publish}>
             Terbitkan listing tersimpan
           </button>
         ))}
