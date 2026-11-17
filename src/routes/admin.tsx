@@ -36,6 +36,8 @@ const fields = [
 function Photos({ listingId }: { listingId: string }) {
   const [photos, setPhotos] = useState<{ id: string }[]>([]);
   const [message, setMessage] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const uploadInProgress = useRef(false);
   const loadVersion = useRef(0);
   async function load() {
     const version = ++loadVersion.current;
@@ -49,9 +51,12 @@ function Photos({ listingId }: { listingId: string }) {
   }, [listingId]);
   async function upload(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (uploadInProgress.current) return;
     const form = event.currentTarget;
     const file = new FormData(form).get("photo");
     if (!(file instanceof File) || !file.size) return;
+    uploadInProgress.current = true;
+    setUploading(true);
     setMessage("Mengunggah foto…");
     try {
       const response = await fetch("/api/photos", {
@@ -69,6 +74,9 @@ function Photos({ listingId }: { listingId: string }) {
       }
     } catch {
       setMessage("Foto tidak dapat diunggah. Gunakan JPEG, PNG, atau WebP hingga 5 MB.");
+    } finally {
+      uploadInProgress.current = false;
+      setUploading(false);
     }
   }
   async function remove(id: string) {
@@ -118,7 +126,9 @@ function Photos({ listingId }: { listingId: string }) {
           accept="image/jpeg,image/png,image/webp"
           required
         />
-        <button type="submit">Unggah foto</button>
+        <button type="submit" disabled={uploading}>
+          Unggah foto
+        </button>
       </form>
       <p role="status">{message}</p>
     </section>

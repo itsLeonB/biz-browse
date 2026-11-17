@@ -100,7 +100,7 @@ test(
           pending.set(n, resolve);
           socket.send(JSON.stringify({ id: n, method, params }));
         });
-      const mock = `window.calls=[]; window.listings=[{id:'a',business_name:'A',published:false},{id:'b',business_name:'B',published:false}]; window.photoError=null; window.uploadCount=0; window.photos=[{id:'photo'},{id:'other'}]; window.failRefresh=false; window.fetch=async (url,opts={})=>{ calls.push([url,opts.method]); if(url==='/api/drafts' && opts.method==='POST') return await new Promise(r=>window.finishSave=()=>r(new Response(JSON.stringify({id:'a'})))); if(url==='/api/drafts') return failRefresh ? new Response('',{status:500}) : Response.json({listings,categories:[],cities:[]}); if(url.startsWith('/api/photos?')) { const snapshot=photos.slice(); if(window.delayPhotos) { window.delayPhotos=false; return await new Promise(r=>window.finishPhotos=()=>r(Response.json(snapshot))); } return Response.json(snapshot); } if(url==='/api/photos' && opts.method==='POST') { photos.push({id:'uploaded'+(++window.uploadCount)}); return new Response(null,{status:204}); } if(url==='/api/photos/photo') { if(photoError?.status===404 || !photoError) photos=photos.filter(p=>p.id!=='photo'); return photoError ? new Response(JSON.stringify(photoError.body),{status:photoError.status}) : new Response(null,{status:204}); } if(url.endsWith('/publish')) { listings[0].published=true; return new Response(null,{status:204}); } return new Response(null,{status:204}); };`;
+      const mock = `window.calls=[]; window.listings=[{id:'a',business_name:'A',published:false},{id:'b',business_name:'B',published:false}]; window.photoError=null; window.uploadCount=0; window.photos=[{id:'photo'},{id:'other'}]; window.failRefresh=false; window.fetch=async (url,opts={})=>{ calls.push([url,opts.method]); if(url==='/api/drafts' && opts.method==='POST') return await new Promise(r=>window.finishSave=()=>r(new Response(JSON.stringify({id:'a'})))); if(url==='/api/drafts') return failRefresh ? new Response('',{status:500}) : Response.json({listings,categories:[],cities:[]}); if(url.startsWith('/api/photos?')) { const snapshot=photos.slice(); if(window.delayPhotos) { window.delayPhotos=false; return await new Promise(r=>window.finishPhotos=()=>r(Response.json(snapshot))); } return Response.json(snapshot); } if(url==='/api/photos' && opts.method==='POST') { if(window.failUpload) return new Response(null,{status:500}); photos.push({id:'uploaded'+(++window.uploadCount)}); return new Response(null,{status:204}); } if(url==='/api/photos/photo') { if(photoError?.status===404 || !photoError) photos=photos.filter(p=>p.id!=='photo'); return photoError ? new Response(JSON.stringify(photoError.body),{status:photoError.status}) : new Response(null,{status:204}); } if(url.endsWith('/publish')) { listings[0].published=true; return new Response(null,{status:204}); } return new Response(null,{status:204}); };`;
       await call("Page.enable");
       await call("Page.addScriptToEvaluateOnNewDocument", { source: mock });
       await call("Page.navigate", { url: `http://127.0.0.1:${server.address().port}/` });
@@ -118,8 +118,14 @@ test(
       finishPhotos(); await new Promise(r=>setTimeout(r,100)); const stalePhoto=!!document.querySelector('img[src="/api/photos/photo"]');
       const selectFile=()=>{const selection=new DataTransfer(); selection.items.add(new File(['x'],'x.png',{type:'image/png'})); file.files=selection.files};
       window.finishPhotos=null; window.delayPhotos=true; selectFile(); button('Unggah foto').click(); await wait(()=>window.finishPhotos);
-      const oldRefresh=window.finishPhotos; selectFile(); button('Unggah foto').click(); await wait(()=>document.querySelector('img[src="/api/photos/uploaded3"]'));
-      oldRefresh(); await new Promise(r=>setTimeout(r,100)); const uploaded=!!document.querySelector('img[src="/api/photos/uploaded3"]');
+      const uploadButton=button('Unggah foto'); const uploadDisabled=uploadButton.disabled;
+      selectFile(); uploadButton.form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));
+      await new Promise(r=>setTimeout(r,50)); const duplicateBlocked=window.uploadCount===2;
+      finishPhotos(); await wait(()=>!uploadButton.disabled);
+      selectFile(); uploadButton.click(); await wait(()=>document.querySelector('img[src="/api/photos/uploaded3"]'));
+      const uploaded=!!document.querySelector('img[src="/api/photos/uploaded3"]');
+      await wait(()=>!uploadButton.disabled); window.failUpload=true; selectFile(); uploadButton.click();
+      await wait(()=>status('Foto tidak dapat diunggah.')); const uploadRetryEnabled=!uploadButton.disabled;
       const input=document.querySelector('#business_name'); input.value='Unsaved edit';
       button('Simpan draf').click(); await wait(()=>window.finishSave); const locked=button('B (pribadi)').disabled;
       input.value='Edit while saving'; input.dispatchEvent(new Event('input',{bubbles:true})); finishSave(); await wait(()=>!button('Simpan draf').disabled);
@@ -128,7 +134,7 @@ test(
       failRefresh=true; button('Terbitkan listing tersimpan').click(); await wait(()=>status('Daftar tidak dapat dimuat ulang'));
       const published=status('Listing diterbitkan.'), disabled=button('Tarik listing dari publik').disabled, validation=status('Tidak dapat menerbitkan.');
       button('Tarik listing dari publik').click(); await wait(()=>status('Listing tidak lagi publik.'));
-      return {labels,stalePhoto,uploaded,locked,preserved,dirty,blocked,published,disabled,validation};
+      return {labels,stalePhoto,uploadDisabled,duplicateBlocked,uploaded,uploadRetryEnabled,locked,preserved,dirty,blocked,published,disabled,validation};
     })()`;
       const result = await call("Runtime.evaluate", {
         expression: script,
@@ -143,7 +149,10 @@ test(
       assert.deepEqual(result.result.result.value, {
         labels: ["Hapus foto 1", "Hapus foto 2"],
         stalePhoto: false,
+        uploadDisabled: true,
+        duplicateBlocked: true,
         uploaded: true,
+        uploadRetryEnabled: true,
         locked: true,
         preserved: "Edit while saving",
         dirty: true,
