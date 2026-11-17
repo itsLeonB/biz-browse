@@ -1,6 +1,7 @@
 import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
 try {
   if (![5, 6].includes(process.argv.length)) throw new Error();
@@ -22,7 +23,7 @@ try {
 
   const id = `pr-${event.number}`;
   const result = spawnSync(process.execPath, [
-    new URL("./preview-config.mjs", import.meta.url).pathname,
+    fileURLToPath(new URL("./preview-config.mjs", import.meta.url)),
     join(mappings, `${id}.json`),
     id,
   ], { encoding: "utf8" });

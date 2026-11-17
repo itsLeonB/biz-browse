@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
 try {
   const env = process.env;
@@ -24,7 +25,7 @@ try {
   const gate = spawnSync(
     process.execPath,
     [
-      new URL("./preview-build-entry.mjs", import.meta.url).pathname,
+      fileURLToPath(new URL("./preview-build-entry.mjs", import.meta.url)),
       env.GITHUB_EVENT_PATH,
       env.PREVIEW_MAPPINGS,
       repo,

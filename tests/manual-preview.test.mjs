@@ -1,12 +1,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 
 test("manual preview uses the approved mapping and never prints provider secrets", () => {
-  const dir = mkdtempSync(join(tmpdir(), "manual-preview-"));
+  const dir = mkdtempSync(join(tmpdir(), "manual preview #"));
+  cpSync("scripts", join(dir, "scripts"), { recursive: true });
+  cpSync("wrangler.jsonc", join(dir, "wrangler.jsonc"));
   try {
     const bin = join(dir, "bin"),
       artifact = join(dir, "artifact"),
@@ -44,7 +47,7 @@ test("manual preview uses the approved mapping and never prints provider secrets
     );
     writeFileSync(
       join(bin, "git"),
-      `#!/bin/sh\nif [ "$1" = rev-parse ]; then printf '%s\\n' '${"b".repeat(40)}'; elif [ "$1" = ls-tree ]; then printf '100644 blob ${"a".repeat(40)}\\t.github/manual-preview-mappings/pr-7.json\\n'; if [ -f '${join(dir, "other")}' ]; then printf '100644 blob ${"a".repeat(40)}\\t.github/preview-mappings/pr-8.json\\n'; fi; else case "$2" in *pr-8.json) /bin/cat '${join(dir, "other")}' ;; *) /bin/cat '${join(dir, "mapping")}' ;; esac; fi\n`,
+      `#!/bin/sh\nif [ "$1" = rev-parse ]; then printf '%s\\n' '${"b".repeat(40)}'; elif [ "$1" = ls-tree ]; then printf '100644 blob ${"a".repeat(40)}\\t.github/manual-preview-mappings/pr-7.json\\n'; if [ -f '${join(dir, "other")}' ]; then if [ -f '${join(dir, "other-manual")}' ]; then folder=manual-preview-mappings; else folder=preview-mappings; fi; printf '100644 blob ${"a".repeat(40)}\\t.github/%s/pr-8.json\\n' "$folder"; fi; else case "$2" in *pr-8.json) /bin/cat '${join(dir, "other")}' ;; *) /bin/cat '${join(dir, "mapping")}' ;; esac; fi\n`,
       { mode: 0o755 },
     );
     writeFileSync(
@@ -56,7 +59,14 @@ test("manual preview uses the approved mapping and never prints provider secrets
       writeFileSync(join(dir, "mapping"), JSON.stringify(value));
       return spawnSync(
         process.execPath,
-        ["--import", fake, resolve("scripts/manual-preview.mjs"), "pr-7", commit, artifact],
+        [
+          "--import",
+          pathToFileURL(fake).href,
+          join(dir, "scripts/manual-preview.mjs"),
+          "pr-7",
+          commit,
+          artifact,
+        ],
         {
           encoding: "utf8",
           env: {
@@ -83,6 +93,8 @@ test("manual preview uses the approved mapping and never prints provider secrets
     const other = {
       ...mapping,
       preview_id: "pr-8",
+      cloudflare_account_id: envelope.cloudflare_account_id,
+      live: { ...mapping.live, worker: "worker-live-8", bucket: "bucket-live-8" },
       preview: {
         ...mapping.preview,
         project: "other",
@@ -102,6 +114,36 @@ test("manual preview uses the approved mapping and never prints provider secrets
       result = run(envelope);
       assert.notEqual(result.status, 0);
       assert.throws(() => readFileSync(log));
+    }
+    for (const manual of [false, true]) {
+      if (manual) writeFileSync(join(dir, "other-manual"), "");
+      for (const field of ["worker", "bucket"]) {
+        for (const conflict of [
+          { ...other, preview: { ...other.preview, [field]: mapping.preview[field] } },
+          { ...other, live: { ...other.live, [field]: mapping.preview[field] } },
+          { ...other, preview: { ...other.preview, [field]: mapping.live[field] } },
+        ]) {
+          const save = (account) => {
+            const candidate = { ...conflict, cloudflare_account_id: account };
+            if (manual) {
+              delete candidate.cloudflare_account_id;
+              writeFileSync(
+                join(dir, "other"),
+                JSON.stringify({ cloudflare_account_id: account, mapping: candidate }),
+              );
+            } else writeFileSync(join(dir, "other"), JSON.stringify(candidate));
+          };
+          save(envelope.cloudflare_account_id);
+          result = run(envelope);
+          assert.notEqual(result.status, 0, `same-account ${field} conflict`);
+          assert.throws(() => readFileSync(log));
+          save("c".repeat(32));
+          result = run(envelope);
+          assert.equal(result.status, 0, result.stderr);
+          rmSync(log);
+        }
+      }
+      if (manual) rmSync(join(dir, "other-manual"));
     }
     writeFileSync(join(dir, "other"), JSON.stringify(other));
     result = run(envelope);

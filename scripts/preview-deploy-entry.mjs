@@ -2,12 +2,13 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { extname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 // Run on a fresh isolated runner with trusted scripts, event, mapping and credentials.
 function runGate() {
   const gate = spawnSync(
     process.execPath,
-    [new URL("./preview-deploy-gate.mjs", import.meta.url).pathname],
+    [fileURLToPath(new URL("./preview-deploy-gate.mjs", import.meta.url))],
     { encoding: "utf8" },
   );
   if (gate.status !== 0) throw new Error();
@@ -19,7 +20,7 @@ try {
   const run = (script, args) => {
     const result = spawnSync(
       process.execPath,
-      [new URL(script, import.meta.url).pathname, ...args],
+      [fileURLToPath(new URL(script, import.meta.url)), ...args],
       { encoding: "utf8" },
     );
     if (result.status !== 0) throw new Error();

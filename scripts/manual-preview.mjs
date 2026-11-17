@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { checkNeonTargets } from "./preview-mapping-targets.mjs";
+import { checkCloudflareTargets, checkNeonTargets } from "./preview-mapping-targets.mjs";
 
 let temporary;
 try {
@@ -53,6 +53,7 @@ try {
     .filter(Boolean);
   if (!paths.length || paths.length > 20) throw new Error();
   const mappings = [];
+  const cloudflareMappings = [];
   for (const line of paths) {
     const match =
       /^100644 blob [a-f0-9]{40}\t(\.github\/(manual-preview-mappings|preview-mappings)\/(pr-[1-9][0-9]*)\.json)$/.exec(
@@ -74,10 +75,18 @@ try {
     );
     if (validation.status !== 0) throw new Error();
     mappings.push(candidate);
+    cloudflareMappings.push({
+      account:
+        match[2] === "manual-preview-mappings"
+          ? data.cloudflare_account_id
+          : candidate.cloudflare_account_id,
+      mapping: candidate,
+    });
   }
   if (!paths.some((line) => line.endsWith(`\t.github/manual-preview-mappings/${id}.json`)))
     throw new Error();
   checkNeonTargets(mappings);
+  checkCloudflareTargets(cloudflareMappings);
   const mapping = envelope.mapping.preview;
   const defaults = JSON.parse(readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8"));
   if (
@@ -88,7 +97,11 @@ try {
   const artifact = resolve(artifactArg);
   const validated = spawnSync(
     process.execPath,
-    [new URL("./preview-artifact.mjs", import.meta.url).pathname, artifact, "--validate-only"],
+    [
+      fileURLToPath(new URL("./preview-artifact.mjs", import.meta.url)),
+      artifact,
+      "--validate-only",
+    ],
     { encoding: "utf8", env: safeEnv },
   );
   if (validated.status !== 0) throw new Error();

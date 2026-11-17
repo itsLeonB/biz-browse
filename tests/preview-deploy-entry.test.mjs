@@ -13,6 +13,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 
 const repo = { id: 123, full_name: "owner/repo", default_branch: "main" };
 const event = {
@@ -51,7 +52,7 @@ let mapping = {
 };
 
 test("trusted preview deployment targets mapped resources and fails closed", () => {
-  const dir = mkdtempSync(join(tmpdir(), "preview-deploy-"));
+  const dir = mkdtempSync(join(tmpdir(), "preview deploy #"));
   const mappings = join(dir, "mappings");
   const artifact = join(dir, "artifact");
   const eventPath = join(dir, "event.json");
@@ -158,7 +159,7 @@ test("trusted preview deployment targets mapped resources and fails closed", () 
       process.execPath,
       [
         "--import",
-        fake,
+        pathToFileURL(fake).href,
         join(dir, "scripts/preview-deploy-entry.mjs"),
         eventPath,
         mappings,
@@ -176,7 +177,7 @@ test("trusted preview deployment targets mapped resources and fails closed", () 
           CLOUDFLARE_ACCOUNT_ID: "a".repeat(32),
           FAKE_LOG: log,
           UPLOADED: join(dir, "uploaded"),
-          NODE_OPTIONS: `--import=${fake}`,
+          NODE_OPTIONS: `--import=${pathToFileURL(fake).href}`,
           GITHUB_EVENT_PATH: eventPath,
           GITHUB_EVENT_NAME: "pull_request_target",
           GITHUB_REPOSITORY: "owner/repo",

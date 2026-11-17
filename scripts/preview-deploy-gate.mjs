@@ -1,12 +1,13 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { checkNeonTargets } from "./preview-mapping-targets.mjs";
+import { fileURLToPath } from "node:url";
+import { checkCloudflareTargets, checkNeonTargets } from "./preview-mapping-targets.mjs";
 
 try {
   const expected = JSON.parse(process.env.PREVIEW_IDENTITY);
   const result = spawnSync(
     process.execPath,
-    [new URL("./preview-identity.mjs", import.meta.url).pathname],
+    [fileURLToPath(new URL("./preview-identity.mjs", import.meta.url))],
     { encoding: "utf8" },
   );
   if (result.status !== 0) throw new Error();
@@ -71,9 +72,8 @@ try {
   );
   if (!entries.length || entries.length > 20) throw new Error();
   const names = new Set();
-  const targets = new Set();
-  const liveTargets = new Set();
   const mappings = [];
+  const cloudflareMappings = [];
   for (const entry of entries) {
     const manual = entry.path.startsWith(manualPrefix);
     const name = entry.path.slice((manual ? manualPrefix : prefix).length);
@@ -111,19 +111,12 @@ try {
     if (!/^[a-f0-9]{32}$/.test(account ?? "")) throw new Error();
     const validation = spawnSync(
       process.execPath,
-      [new URL("./preview-config.mjs", import.meta.url).pathname, "-", match[1]],
+      [fileURLToPath(new URL("./preview-config.mjs", import.meta.url)), "-", match[1]],
       { input: manual ? JSON.stringify(mapping) : bytes, encoding: "utf8" },
     );
     if (validation.status !== 0) throw new Error();
     mappings.push(mapping);
-    for (const field of ["worker", "bucket"]) {
-      const target = `${account}/${field}/${mapping.preview[field]}`;
-      const liveTarget = `${account}/${field}/${mapping.live[field]}`;
-      if (targets.has(target) || liveTargets.has(target) || targets.has(liveTarget))
-        throw new Error();
-      targets.add(target);
-      liveTargets.add(liveTarget);
-    }
+    cloudflareMappings.push({ account, mapping });
     if (
       !manual &&
       name === `pr-${actual.pr}.json` &&
@@ -133,6 +126,7 @@ try {
   }
   if (!names.has(`${prefix}pr-${actual.pr}.json`)) throw new Error();
   checkNeonTargets(mappings);
+  checkCloudflareTargets(cloudflareMappings);
   const [latestRef, latestRepository] = await Promise.all([api(refPath), api("")]);
   if (
     latestRef.ref !== ref.ref ||
