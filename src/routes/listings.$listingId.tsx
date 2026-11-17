@@ -34,7 +34,13 @@ function Listing() {
         Harga yang diminta pemilik: {money(listing.asking_price)}. Ini bukan penilaian platform.
       </p>
       {listing.photos.map((id) => (
-        <img key={id} src={`/api/photos/${id}`} alt={`Foto ${listing.business_name}`} width="400" />
+        <img
+          key={id}
+          src={`/api/photos/${id}`}
+          alt={`Foto ${listing.business_name}`}
+          width="400"
+          style={{ maxWidth: "100%", height: "auto" }}
+        />
       ))}
       {listing.revenue_amount !== null && (
         <p>

@@ -58,8 +58,12 @@ function Photos({ listingId }: { listingId: string }) {
       });
       if (!response.ok) throw new Error();
       form.reset();
-      await load();
-      setMessage("Foto tersimpan.");
+      try {
+        await load();
+        setMessage("Foto tersimpan.");
+      } catch {
+        setMessage("Foto tersimpan, tetapi daftar foto tidak dapat dimuat ulang.");
+      }
     } catch {
       setMessage("Foto tidak dapat diunggah. Gunakan JPEG, PNG, atau WebP hingga 5 MB.");
     }
@@ -67,6 +71,15 @@ function Photos({ listingId }: { listingId: string }) {
   async function remove(id: string) {
     try {
       const response = await fetch(`/api/photos/${id}`, { method: "DELETE" });
+      if (response.status === 409) {
+        const error = (await response.json().catch(() => null)) as { code?: string } | null;
+        if (error?.code === "LAST_PUBLISHED_PHOTO") {
+          setMessage(
+            "Foto terakhir listing publik tidak dapat dihapus. Tarik listing atau tambahkan foto lain terlebih dahulu.",
+          );
+          return;
+        }
+      }
       if (!response.ok) throw new Error();
       setPhotos((current) => current.filter((photo) => photo.id !== id));
       setMessage("Foto dihapus.");
@@ -108,16 +121,40 @@ function Admin() {
   const [draft, setDraft] = useState<Draft>({ id: "" });
   const [status, setStatus] = useState("");
   const [formVersion, setFormVersion] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [refreshFailed, setRefreshFailed] = useState(false);
   async function load() {
     const response = await fetch("/api/drafts");
     if (!response.ok) throw new Error("Tidak dapat memuat draf.");
-    setData(await response.json());
+    const next = (await response.json()) as Data;
+    setData(next);
+    setRefreshFailed(false);
+    setDraft((current) => {
+      const listing = next.listings.find((item) => item.id === current.id);
+      return listing ? { ...current, published: listing.published } : current;
+    });
+  }
+  async function refresh(success: string) {
+    try {
+      await load();
+      setStatus(success);
+    } catch {
+      setData((current) => current && { ...current, listings: [] });
+      setRefreshFailed(true);
+      setStatus(
+        `${success} Daftar tidak dapat dimuat ulang. Muat ulang halaman untuk melihat daftar.`,
+      );
+    }
   }
   useEffect(() => {
-    load().catch(() => setStatus("Tidak dapat memuat draf."));
+    load().catch(() =>
+      setStatus("Tidak dapat memuat draf. Muat ulang halaman untuk mencoba lagi."),
+    );
   }, []);
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (busy || !data) return;
+    setBusy(true);
     setStatus("Menyimpan…");
     const form = new FormData(event.currentTarget);
     try {
@@ -128,39 +165,42 @@ function Admin() {
       });
       if (!response.ok) throw new Error();
       const saved = (await response.json()) as { id: string };
-      setDraft({
-        ...(Object.fromEntries(form) as Record<string, string>),
-        id: saved.id,
-        published: draft.published,
-      });
-      setStatus("Listing tersimpan.");
-      await load().catch(() => setStatus("Listing tersimpan, tetapi daftar tidak dapat dimuat."));
+      setDraft((current) => ({ ...current, id: saved.id }));
+      await refresh("Listing tersimpan.");
     } catch {
       setStatus("Draf tidak tersimpan. Periksa data dan coba lagi.");
+    } finally {
+      setBusy(false);
     }
   }
   async function publish() {
+    if (busy) return;
+    setBusy(true);
     try {
       const response = await fetch(`/api/drafts/${draft.id}/publish`, { method: "POST" });
       if (!response.ok) throw new Error();
       setDraft((current) => ({ ...current, published: true }));
-      setStatus("Listing diterbitkan.");
-      await load();
+      await refresh("Listing diterbitkan.");
     } catch {
       setStatus(
         "Tidak dapat menerbitkan. Lengkapi nama, kategori, kota, deskripsi, isi dan pengecualian harga, harga, nomor WhatsApp, dan foto. Isi periode dan arti untuk setiap angka keuangan.",
       );
+    } finally {
+      setBusy(false);
     }
   }
   async function unpublish() {
+    if (busy) return;
+    setBusy(true);
     try {
       const response = await fetch(`/api/drafts/${draft.id}/unpublish`, { method: "POST" });
       if (!response.ok) throw new Error();
       setDraft((current) => ({ ...current, published: false }));
-      setStatus("Listing tidak lagi publik.");
-      await load();
+      await refresh("Listing tidak lagi publik.");
     } catch {
       setStatus("Listing tidak dapat ditarik.");
+    } finally {
+      setBusy(false);
     }
   }
   return (
@@ -175,6 +215,7 @@ function Admin() {
       </p>
       <button
         type="button"
+        disabled={busy}
         onClick={() => {
           setDraft({ id: "" });
           setFormVersion((n) => n + 1);
@@ -187,6 +228,7 @@ function Admin() {
           <li key={String(item.id)}>
             <button
               type="button"
+              disabled={busy}
               onClick={() => {
                 setDraft(item);
                 setFormVersion((n) => n + 1);
@@ -197,7 +239,7 @@ function Admin() {
           </li>
         ))}
       </ul>
-      <form onSubmit={save} key={`${draft.id || "new"}-${formVersion}`}>
+      <form onSubmit={save} key={formVersion}>
         <input type="hidden" name="id" value={String(draft.id || "")} />
         {fields.map(([name, label]) => (
           <p key={name}>
@@ -237,16 +279,18 @@ function Admin() {
             </select>
           </p>
         ))}
-        <button type="submit">Simpan draf</button>
+        <button type="submit" disabled={busy || !data}>
+          Simpan draf
+        </button>
       </form>
       {typeof draft.id === "string" && draft.id && <Photos key={draft.id} listingId={draft.id} />}
       {draft.id &&
         (draft.published ? (
-          <button type="button" onClick={unpublish}>
+          <button type="button" disabled={busy || refreshFailed} onClick={unpublish}>
             Tarik listing dari publik
           </button>
         ) : (
-          <button type="button" onClick={publish}>
+          <button type="button" disabled={busy || refreshFailed} onClick={publish}>
             Terbitkan listing tersimpan
           </button>
         ))}
