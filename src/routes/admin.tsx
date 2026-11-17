@@ -80,7 +80,7 @@ function Photos({ listingId }: { listingId: string }) {
           return;
         }
       }
-      if (!response.ok) throw new Error();
+      if (!response.ok && response.status !== 404) throw new Error();
       setPhotos((current) => current.filter((photo) => photo.id !== id));
       setMessage("Foto dihapus.");
     } catch {

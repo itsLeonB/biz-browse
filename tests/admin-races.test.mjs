@@ -111,6 +111,7 @@ test(
       await wait(()=>button('A (pribadi)')); button('A (pribadi)').click(); await wait(()=>button('Hapus foto'));
       photoError={status:409,body:{code:'LAST_PUBLISHED_PHOTO'}}; button('Hapus foto').click(); await wait(()=>status('Foto terakhir listing publik'));
       photoError={status:409,body:{code:'OTHER'}}; button('Hapus foto').click(); await wait(()=>status('Foto tidak dapat dihapus.'));
+      photoError={status:404,body:{}}; button('Hapus foto').click(); await wait(()=>!button('Hapus foto'));
       const input=document.querySelector('#business_name'); input.value='Unsaved edit';
       button('Simpan draf').click(); await wait(()=>window.finishSave); const locked=button('B (pribadi)').disabled;
       input.value='Edit while saving'; finishSave(); await wait(()=>status('Listing tersimpan.'));
