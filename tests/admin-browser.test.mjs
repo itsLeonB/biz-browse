@@ -6,6 +6,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { startChrome, testUsers, validateKeys } from "./admin-browser-support.mjs";
+import { cdp, waitForSocket } from "./browser-support.mjs";
 
 const secret = process.env.TEST_CLERK_SECRET_KEY;
 const publishable = process.env.TEST_CLERK_PUBLISHABLE_KEY;
@@ -107,25 +108,8 @@ test(
       );
       const [page] = await (await fetch(`http://127.0.0.1:${debugPort}/json/list`)).json();
       socket = new WebSocket(page.webSocketDebuggerUrl);
-      await new Promise((resolve, reject) => {
-        socket.onopen = resolve;
-        socket.onerror = reject;
-      });
-      let id = 0;
-      const pending = new Map();
-      socket.onmessage = ({ data }) => {
-        const message = JSON.parse(data);
-        if (pending.has(message.id)) {
-          pending.get(message.id)(message);
-          pending.delete(message.id);
-        }
-      };
-      const call = (method, params = {}) =>
-        new Promise((resolve) => {
-          const requestId = ++id;
-          pending.set(requestId, resolve);
-          socket.send(JSON.stringify({ id: requestId, method, params }));
-        });
+      await waitForSocket(socket);
+      const call = cdp(socket);
       const evaluate = async (expression) => {
         const result = await call("Runtime.evaluate", { expression, returnByValue: true });
         if (result.error || result.result.exceptionDetails)
@@ -212,7 +196,7 @@ test(
         }
       }
       failures.push(...(await users.cleanup()));
-      await rm(dir, { recursive: true, force: true });
+      await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
       assert.deepEqual(failures, [], "Cleanup failed; remove the listed resources manually");
     }
   },

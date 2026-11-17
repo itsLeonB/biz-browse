@@ -1,9 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { startChrome } from "./admin-browser-support.mjs";
+import { cdp, waitForSocket } from "./browser-support.mjs";
 
 const chrome = process.env.CHROME_BIN;
 
@@ -12,54 +13,34 @@ test(
   { skip: !chrome && "Set CHROME_BIN to run the browser journey" },
   async () => {
     const profile = await mkdtemp(join(tmpdir(), "directory-browser-"));
-    const browser = spawn(
-      chrome,
-      [
+    let browser;
+    let socket;
+    try {
+      browser = await startChrome(chrome, [
         "--headless",
         "--no-sandbox",
         "--disable-gpu",
         "--remote-debugging-port=0",
         `--user-data-dir=${profile}`,
         "about:blank",
-      ],
-      { stdio: "ignore" },
-    );
-    const retry = async (fn) => {
-      for (let i = 0; i < 100; i++) {
-        try {
-          const result = await fn();
-          if (result) return result;
-        } catch {}
-        await new Promise((resolve) => setTimeout(resolve, 100));
-      }
-      throw new Error("Browser did not reach expected state");
-    };
-    let socket;
-    try {
+      ]);
+      const retry = async (fn) => {
+        for (let i = 0; i < 100; i++) {
+          try {
+            const result = await fn();
+            if (result) return result;
+          } catch {}
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+        throw new Error("Browser did not reach expected state");
+      };
       const port = await retry(
         async () => (await readFile(join(profile, "DevToolsActivePort"), "utf8")).split("\n")[0],
       );
       const [page] = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
       socket = new WebSocket(page.webSocketDebuggerUrl);
-      await new Promise((resolve, reject) => {
-        socket.onopen = resolve;
-        socket.onerror = reject;
-      });
-      let id = 0;
-      const pending = new Map();
-      socket.onmessage = ({ data }) => {
-        const message = JSON.parse(data);
-        if (pending.has(message.id)) {
-          pending.get(message.id)(message);
-          pending.delete(message.id);
-        }
-      };
-      const call = (method, params = {}) =>
-        new Promise((resolve) => {
-          const requestId = ++id;
-          pending.set(requestId, resolve);
-          socket.send(JSON.stringify({ id: requestId, method, params }));
-        });
+      await waitForSocket(socket);
+      const call = cdp(socket);
       const evaluate = async (expression) =>
         (await call("Runtime.evaluate", { expression, returnByValue: true })).result.result.value;
       await call("Page.navigate", { url: process.env.TEST_BASE_URL });
@@ -94,9 +75,12 @@ test(
       assert.equal(await evaluate("document.querySelector('h1').textContent"), "Warung Mawar Uji");
     } finally {
       socket?.close();
-      browser.kill();
-      await new Promise((resolve) => browser.once("exit", resolve));
-      await rm(profile, { recursive: true, force: true });
+      if (browser) {
+        browser.kill();
+        if (browser.exitCode === null && browser.signalCode === null)
+          await new Promise((resolve) => browser.once("exit", resolve));
+      }
+      await rm(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   },
 );

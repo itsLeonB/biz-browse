@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import postgres from "postgres";
 
 const base = process.env.TEST_BASE_URL;
@@ -46,15 +47,22 @@ test(
   },
   async () => {
     const sql = postgres(process.env.TEST_DATABASE_URL, { max: 1 });
-    const id = "10000000-0000-4000-8000-000000000001";
+    const id = randomUUID();
+    const before = `Warung Lama ${id}`;
+    const after = `Warung Baru ${id}`;
     try {
-      await sql`UPDATE listings SET business_name = 'Warung Baru Uji' WHERE id = ${id}`;
+      await sql`INSERT INTO listings (id, business_name, category_id, city_id, asking_price, published) VALUES (${id}, ${before}, 2, 2, 100000000, true)`;
+      assert.ok((await (await fetch(base)).text()).includes(before));
+      await sql`UPDATE listings SET business_name = ${after} WHERE id = ${id}`;
       const html = await (await fetch(base)).text();
-      assert.match(html, /Warung Baru Uji/);
-      assert.doesNotMatch(html, /Warung Mawar Uji/);
+      assert.ok(html.includes(after));
+      assert.ok(!html.includes(before));
     } finally {
-      await sql`UPDATE listings SET business_name = 'Warung Mawar Uji' WHERE id = ${id}`;
-      await sql.end();
+      try {
+        await sql`DELETE FROM listings WHERE id = ${id}`;
+      } finally {
+        await sql.end();
+      }
     }
   },
 );
