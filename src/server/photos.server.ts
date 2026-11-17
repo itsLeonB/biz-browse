@@ -10,12 +10,13 @@ export async function listPhotos(listingId: string) {
   const sql = db();
   try {
     const pending =
-      await sql`SELECT photo_id, object_key FROM pending_photo_deletions ORDER BY created_at, photo_id LIMIT 10`;
+      await sql`SELECT photo_id, object_key FROM pending_photo_deletions WHERE next_attempt_at <= now() ORDER BY next_attempt_at, photo_id LIMIT 10`;
     for (const row of pending) {
       try {
         await env.PHOTOS.delete(row.object_key);
         await sql`DELETE FROM pending_photo_deletions WHERE photo_id = ${row.photo_id}`;
       } catch (error) {
+        await sql`UPDATE pending_photo_deletions SET next_attempt_at = clock_timestamp() + interval '1 minute' WHERE photo_id = ${row.photo_id}`;
         console.error("Pending photo deletion failed", error);
       }
     }
@@ -65,7 +66,8 @@ export async function deletePhoto(id: string) {
     const result = await sql.begin(async (tx) => {
       const rows =
         await tx`SELECT l.id, l.published FROM listings l JOIN listing_photos p ON p.listing_id = l.id WHERE p.id = ${id} FOR UPDATE OF l`;
-      if (!rows.length) {
+      const target = rows.length ? await tx`SELECT id FROM listing_photos WHERE id = ${id}` : [];
+      if (!target.length) {
         const pending =
           await tx`SELECT object_key FROM pending_photo_deletions WHERE photo_id = ${id}`;
         return pending[0]?.object_key ?? null;
