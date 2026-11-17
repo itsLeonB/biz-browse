@@ -1,0 +1,39 @@
+services:
+  db:
+    extends:
+      file: compose.yaml
+      service: db
+    volumes:
+      - ./tests/taxonomy.sql:/docker-entrypoint-initdb.d/003_test_taxonomy.sql:ro
+      - ./tests/directory.sql:/docker-entrypoint-initdb.d/004_test_directory.sql:ro
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - path: ${ENV_FILE:-.env.example}
+        required: true
+    volumes:
+      - ${DEV_VARS_FILE:-./.dev.vars.example}:/app/.dev.vars:ro
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3107/api/drafts').catch(() => process.exit(1))"]
+      interval: 2s
+      timeout: 3s
+      retries: 60
+  test:
+    build:
+      context: .
+      target: test
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      TEST_BASE_URL: http://app:3107
+      TEST_DATABASE_URL: postgres://directory_test:local_test_only@db:5432/directory_test
+      TEST_ADMIN_1_TOKEN:
+      TEST_ADMIN_2_TOKEN:
+      TEST_OUTSIDER_TOKEN:
+      TEST_CATEGORY_ID: "1"
+      TEST_CITY_ID: "1"
+    command: ["npm", "test"]

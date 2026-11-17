@@ -1,0 +1,5 @@
+# Local examples only. Copy to .dev.vars and provide real Clerk keys and user IDs.
+DATABASE_URL=postgres://directory_test:local_test_only@db:5432/directory_test
+CLERK_SECRET_KEY=sk_test_REPLACE_ME
+VITE_CLERK_PUBLISHABLE_KEY=pk_test_Y2xlcmsuZXhhbXBsZS5jb20k
+ADMIN_USER_IDS=user_first,user_second

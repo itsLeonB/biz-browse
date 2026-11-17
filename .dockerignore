@@ -1,0 +1,9 @@
+node_modules
+.git
+.agents
+.serena
+.env*
+.dev.vars*
+dist
+.tanstack
+.wrangler
