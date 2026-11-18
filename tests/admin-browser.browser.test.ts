@@ -5,7 +5,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { testUsers, validateKeys } from "./admin-browser-support.mjs";
+import { testUsers, validateKeys, type ClerkTransport } from "./admin-browser-support.ts";
 
 const secret = process.env.TEST_CLERK_SECRET_KEY;
 const publishable = process.env.TEST_CLERK_PUBLISHABLE_KEY;
@@ -24,7 +24,7 @@ test("admin saves a draft and reopens its saved fields after reload", async ({ p
   const password = `Aa1!${randomBytes(18).toString("hex")}`;
   const email = `admin-${randomUUID()}@example.com`;
   let composeStarted = false;
-  const clerk = async (path, options = {}) => {
+  const clerk: ClerkTransport = async (path, options = {}) => {
     const response = await fetch(`https://api.clerk.com/v1${path}`, {
       ...options,
       headers: {
@@ -37,7 +37,7 @@ test("admin saves a draft and reopens its saved fields after reload", async ({ p
     return response.status === 204 ? null : response.json();
   };
   const users = testUsers(clerk, randomUUID());
-  const compose = (...args) =>
+  const compose = (...args: string[]) =>
     execFileSync(
       "docker",
       [
@@ -63,7 +63,7 @@ test("admin saves a draft and reopens its saved fields after reload", async ({ p
         timeout: 480_000,
       },
     );
-  const retry = async (fn, label, attempts = 150) => {
+  const retry = async (fn: () => Promise<boolean>, label: string, attempts = 150) => {
     for (let i = 0; i < attempts; i++) {
       try {
         const result = await fn();

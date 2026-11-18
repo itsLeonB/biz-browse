@@ -12,7 +12,8 @@ test("separator keeps its base and caller classes for each orientation", () => {
   expect(separator.classList.contains("bg-border")).toBe(true);
   expect(separator.classList.contains("caller-class")).toBe(true);
 
-  const className = (state) => `custom-${state.orientation}`;
+  const className = (state: { orientation: "horizontal" | "vertical" }) =>
+    `custom-${state.orientation}`;
   rerender(React.createElement(Separator, { className }));
   separator = screen.getByRole("separator");
   expect(separator.classList.contains("bg-border")).toBe(true);

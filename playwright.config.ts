@@ -2,13 +2,13 @@ import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./tests",
-  testMatch: "**/*.browser.test.mjs",
+  testMatch: "**/*.browser.test.ts",
   expect: { timeout: 30_000 },
   use: {
     launchOptions: process.env.CHROME_BIN ? { executablePath: process.env.CHROME_BIN } : {},
   },
   projects: [
-    { name: "public", testIgnore: "**/admin-browser.browser.test.mjs" },
-    { name: "clerk", testMatch: "**/admin-browser.browser.test.mjs" },
+    { name: "public", testIgnore: "**/admin-browser.browser.test.ts" },
+    { name: "clerk", testMatch: "**/admin-browser.browser.test.ts" },
   ],
 });

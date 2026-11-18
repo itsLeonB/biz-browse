@@ -81,7 +81,7 @@ duplicate or implementation-coupled proof. Apply the
 
 Use `package.json` for the current scripts and `README.md` for test setup.
 
-- Run a focused unit test with `npx vitest run tests/<file>.test.mjs`.
+- Run a focused unit test with `npx vitest run tests/<file>.test.ts`.
 - Run `./scripts/test-compose.sh` for tests that need the isolated app, database,
   and local R2 storage. Its authenticated cases need the Clerk test setup in
   `README.md`.

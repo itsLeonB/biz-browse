@@ -1,7 +1,7 @@
 import { test } from "vitest";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { testUsers, validateKeys } from "./admin-browser-support.mjs";
+import { testUsers, validateKeys, type ClerkTransport } from "./admin-browser-support.ts";
 
 test("invalid keys do not appear in validation errors", () => {
   for (const [secret, publishable, invalid] of [
@@ -48,8 +48,9 @@ test("cleanup reconciles uncertain creates without deleting preexisting users", 
       private_metadata: {},
     },
   ];
-  const clerk = async (path, options = {}) => {
+  const clerk: ClerkTransport = async (path, options = {}) => {
     if (options.method === "POST") {
+      assert.ok(options.body);
       const body = JSON.parse(options.body);
       records.push({
         id: "created",
@@ -79,6 +80,7 @@ test("cleanup reconciles uncertain creates without deleting preexisting users", 
 test("cleanup reports lookup and delete failures", async () => {
   const users = testUsers(async (path, options = {}) => {
     if (options.method === "POST") {
+      assert.ok(options.body);
       if (JSON.parse(options.body).email_address[0] === "uncertain@example.com")
         throw new Error("lost");
       return { id: "created" };

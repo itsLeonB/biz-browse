@@ -53,11 +53,13 @@ test("admin keeps edits and reports photo and refresh failures correctly", async
         : '<div id="root"></div><script src="/bundle.js"></script>',
     );
   });
-  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   try {
     const mock = `window.confirm=()=>true; window.calls=[]; window.listings=[{id:'a',business_name:'A',published:false},{id:'b',business_name:'B',published:false}]; window.photoError=null; window.uploadCount=0; window.photos=[{id:'photo'},{id:'other'}]; window.failRefresh=false; window.fetch=async (url,opts={})=>{ calls.push([url,opts.method]); if(url==='/api/drafts' && opts.method==='POST') return await new Promise(r=>window.finishSave=()=>r(new Response(JSON.stringify({id:'a'})))); if(url==='/api/drafts') return failRefresh ? new Response('',{status:500}) : Response.json({listings,categories:[],cities:[]}); if(url.startsWith('/api/photos?')) { const snapshot=photos.slice(); if(window.delayPhotos) { window.delayPhotos=false; return await new Promise(r=>window.finishPhotos=()=>r(Response.json(snapshot))); } return Response.json(snapshot); } if(url==='/api/photos' && opts.method==='POST') { if(window.failUpload) return new Response(null,{status:500}); photos.push({id:'uploaded'+(++window.uploadCount)}); return new Response(null,{status:204}); } if(url==='/api/photos/photo') { if(photoError?.status===404 || !photoError) photos=photos.filter(p=>p.id!=='photo'); return photoError ? new Response(JSON.stringify(photoError.body),{status:photoError.status}) : new Response(null,{status:204}); } if(url.endsWith('/publish')) { listings[0].published=true; return new Response(null,{status:204}); } return new Response(null,{status:204}); };`;
     await page.addInitScript({ content: mock });
-    await page.goto(`http://127.0.0.1:${server.address().port}/`);
+    const address = server.address();
+    assert.ok(address && typeof address !== "string");
+    await page.goto(`http://127.0.0.1:${address.port}/`);
     const script = `(async () => {
       const wait=async f=>{for(let i=0;i<200;i++){if(f())return;await new Promise(r=>setTimeout(r,10))}throw Error('timeout '+document.body.innerText+' calls='+JSON.stringify(window.calls))};
       const button=text=>Array.from(document.querySelectorAll('button')).find(b=>b.textContent.includes(text));
@@ -114,6 +116,8 @@ test("admin keeps edits and reports photo and refresh failures correctly", async
       validation: false,
     });
   } finally {
-    await new Promise((resolve) => server.close(resolve));
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve())),
+    );
   }
 });

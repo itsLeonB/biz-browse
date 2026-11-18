@@ -5,7 +5,7 @@ import { copyFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const vars = (name) =>
+const vars = (name: string) =>
   `CLERK_SECRET_KEY=synthetic\nVITE_CLERK_PUBLISHABLE_KEY=synthetic\nMARKER=${name}\nDATABASE_URL=must_not_be_used\n`;
 
 test.each([
@@ -79,7 +79,10 @@ esac
 `,
         { mode: 0o755 },
       );
-      const env = { ...process.env, PATH: `${join(root, "bin")}:${process.env.PATH}` };
+      const env: NodeJS.ProcessEnv = {
+        ...process.env,
+        PATH: `${join(root, "bin")}:${process.env.PATH}`,
+      };
       delete env.ENV_FILE;
       delete env.DEV_VARS_FILE;
       const result = spawnSync("sh", [join(root, "scripts/test-compose.sh")], {

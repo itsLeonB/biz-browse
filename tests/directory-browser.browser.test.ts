@@ -7,7 +7,10 @@ test("buyer filters the directory and opens a listing", async ({ page }) => {
   await expect(page.locator("#category")).toBeVisible();
   await expect(page.getByText("Warung Mawar Uji").first()).toBeVisible();
   await page.locator("#category").selectOption("2");
-  await page.locator("form").evaluate((form) => form.requestSubmit());
+  await page.locator("form").evaluate((form) => {
+    if (!(form instanceof HTMLFormElement)) throw new Error("Expected a form");
+    form.requestSubmit();
+  });
   await expect(page).toHaveURL(/category=2/);
   await expect(page.getByText("Warung Mawar Uji").first()).toBeVisible();
   await expect(page.getByText("Salon Melati Uji")).toHaveCount(0);

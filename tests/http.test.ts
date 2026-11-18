@@ -7,7 +7,8 @@ const endpoint = `${base}/api/drafts`;
 const admin1 = process.env.TEST_ADMIN_1_TOKEN;
 const admin2 = process.env.TEST_ADMIN_2_TOKEN;
 const outsider = process.env.TEST_OUTSIDER_TOKEN;
-const headers = (token) => (token ? { Authorization: `Bearer ${token}` } : {});
+const headers = (token: string | undefined): Record<string, string> =>
+  token ? { Authorization: `Bearer ${token}` } : {};
 const draft = {
   id: "",
   business_name: "Kedai uji",
@@ -26,7 +27,8 @@ const draft = {
   profit_period: "per bulan",
   profit_meaning: "Setelah biaya operasional",
 };
-async function save(token, value) {
+async function save(token: string | undefined, value: typeof draft) {
+  assert.ok(base);
   return fetch(endpoint, {
     method: "POST",
     headers: {
@@ -77,17 +79,19 @@ test(
       outsider &&
       process.env.TEST_CATEGORY_ID &&
       process.env.TEST_CITY_ID
-    )
-      ? "Requires three real Clerk session tokens and test taxonomy IDs"
-      : false,
+    ),
   },
   async () => {
+    assert.ok(base);
     let response = await save(admin1, draft);
     assert.equal(response.status, 200);
-    const { id } = await response.json();
+    const { id } = (await response.json()) as { id: string };
     response = await fetch(endpoint, { headers: headers(admin2) });
     assert.equal(response.status, 200);
-    let stored = (await response.json()).listings.find((item) => item.id === id);
+    let stored = ((await response.json()) as { listings: (typeof draft)[] }).listings.find(
+      (item) => item.id === id,
+    );
+    assert.ok(stored);
     assert.equal(stored.business_name, draft.business_name);
     assert.equal(stored.asking_price, draft.asking_price);
     assert.equal(String(stored.category_id), draft.category_id);
@@ -98,7 +102,10 @@ test(
     response = await save(admin2, { ...draft, id, business_name: "Kedai diperbarui" });
     assert.equal(response.status, 200);
     response = await fetch(endpoint, { headers: headers(admin1) });
-    stored = (await response.json()).listings.find((item) => item.id === id);
+    stored = ((await response.json()) as { listings: (typeof draft)[] }).listings.find(
+      (item) => item.id === id,
+    );
+    assert.ok(stored);
     assert.equal(stored.business_name, "Kedai diperbarui");
     assert.equal((await fetch(`${base}/`)).status, 200);
     assert.doesNotMatch(await (await fetch(`${base}/`)).text(), /Kedai diperbarui/);
@@ -125,7 +132,7 @@ test(
       body: png,
     });
     assert.equal(response.status, 200);
-    const photo = (await response.json()).id;
+    const photo = ((await response.json()) as { id: string }).id;
     assert.notEqual((await fetch(`${base}/api/photos/${photo}`)).status, 200);
     for (const field of [
       "business_name",
@@ -196,7 +203,7 @@ test(
       body: png,
     });
     assert.equal(response.status, 200);
-    const addedPhoto = (await response.json()).id;
+    const addedPhoto = ((await response.json()) as { id: string }).id;
     assert.equal((await fetch(`${base}/api/photos/${addedPhoto}`)).status, 200);
     assert.equal(
       (
@@ -217,7 +224,7 @@ test(
       200,
     );
     assert.match(await (await fetch(detail)).text(), /Suntingan terakhir/);
-    const unpublish = (token) =>
+    const unpublish = (token: string | undefined) =>
       fetch(`${endpoint}/${id}/unpublish`, {
         method: "POST",
         headers: { ...headers(token), Origin: new URL(base).origin },
@@ -233,7 +240,7 @@ test(
 
     response = await save(admin2, { ...draft, id: "" });
     assert.equal(response.status, 200);
-    const financialId = (await response.json()).id;
+    const financialId = ((await response.json()) as { id: string }).id;
     response = await fetch(`${base}/api/photos`, {
       method: "POST",
       headers: {

@@ -10,7 +10,7 @@ Buyers can browse and filter published listings without an account. Admins can p
 
 ### Tests
 
-- `npm test` or `npm run test:unit` runs the Vitest unit and jsdom component tests. Run one file with `npx vitest run tests/separator.test.mjs`.
+- `npm test` or `npm run test:unit` runs the Vitest unit and jsdom component tests. Run one file with `npx vitest run tests/separator.test.ts`.
 - `npm run test:compose` runs HTTP and database tests in isolated Docker resources. Shared seeds load taxonomy before directory data. Never point these tests at production.
 - Run `npx playwright install --with-deps chromium` and `npm run build` before browser tests. With working Clerk keys in `ENV_FILE` and `DEV_VARS_FILE`, run `./scripts/test-compose.sh --browser-public`. For an existing isolated app, set `TEST_BASE_URL` and run `npm run test:browser -- --project=public`.
 - Set `TEST_CLERK_SECRET_KEY` and `TEST_CLERK_PUBLISHABLE_KEY`, then run `npm run test:browser -- --project=clerk`. Use a dedicated Clerk test instance with email/password sign-in enabled. This test creates temporary users and its own Docker project, and deletes both. A hard kill or Clerk outage can leave `admin-...@example.com` users or `admin-browser-...` Docker projects; inspect and remove leftovers manually.

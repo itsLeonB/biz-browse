@@ -136,8 +136,8 @@ test("pages reflow, expose named controls, and pass axe with fixture data", asyn
       );
     }
   });
-  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-  const retry = async (fn) => {
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const retry = async (fn: () => Promise<unknown>) => {
     for (let i = 0; i < 100; i++) {
       const value = await fn().catch(() => null);
       if (value) return value;
@@ -146,9 +146,11 @@ test("pages reflow, expose named controls, and pass axe with fixture data", asyn
     throw new Error("Browser did not reach expected state");
   };
   try {
-    const evaluate = (expression) => page.evaluate(expression);
+    const address = server.address();
+    assert.ok(address && typeof address !== "string");
+    const evaluate = (expression: string) => page.evaluate(expression);
     for (const name of ["directory", "detail", "admin", "signIn", "empty", "invalid", "notFound"]) {
-      await page.goto(`http://127.0.0.1:${server.address().port}/?page=${name}`);
+      await page.goto(`http://127.0.0.1:${address.port}/?page=${name}`);
       await retry(() =>
         evaluate(
           "!!document.querySelector('main h1') && getComputedStyle(document.body).lineHeight !== 'normal'",
@@ -205,6 +207,8 @@ test("pages reflow, expose named controls, and pass axe with fixture data", asyn
       );
     }
   } finally {
-    await new Promise((resolve) => server.close(resolve));
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve())),
+    );
   }
 });

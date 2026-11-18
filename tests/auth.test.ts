@@ -2,6 +2,10 @@ import { test } from "vitest";
 import assert from "node:assert/strict";
 import { build } from "esbuild";
 
+declare global {
+  var testClerkSession: { isAuthenticated: boolean; userId: string | null } | undefined;
+}
+
 test("admin access requires an authenticated user in the configured list", async () => {
   const bundle = await build({
     entryPoints: ["src/server/auth.server.ts"],
@@ -45,7 +49,7 @@ test("admin access requires an authenticated user in the configured list", async
       ["missing user", "user_first", true, null, false],
       ["empty list", "", true, "user_first", false],
       ["unset list", undefined, true, "user_first", false],
-    ]) {
+    ] as [string, string | undefined, boolean, string | null, boolean][]) {
       if (ids === undefined) delete process.env.ADMIN_USER_IDS;
       else process.env.ADMIN_USER_IDS = ids;
       globalThis.testClerkSession = { isAuthenticated: authenticated, userId };
