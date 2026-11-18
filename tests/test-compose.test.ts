@@ -148,7 +148,7 @@ export async function createHttpTestUsers() {
       join(root, "scripts/test-compose.sh"),
       `#!/bin/sh
 [ "$TEST_AUTHENTICATED" = 1 ] && [ "$TEST_ADMIN_1_SESSION_ID" = sess_1 ] &&
-[ "$(stat -c %a "$ENV_FILE")" = 600 ] && [ "$(stat -c %a "$DEV_VARS_FILE")" = 600 ] || exit 2
+node -e 'const { statSync } = require("node:fs"); if ([process.env.ENV_FILE, process.env.DEV_VARS_FILE].some(path => (statSync(path).mode & 0o777) !== 0o600)) process.exit(2)' || exit 2
 printf '%s' "$ENV_FILE" > file-path
 exit ${exitCode}
 `,

@@ -3,21 +3,21 @@ import { dirname } from "node:path";
 import type { Page, TestInfo } from "@playwright/test";
 
 export function redactBrowserDetails(text: string) {
+  text = text.replace(/https?:\/\/[^\s"<>]+/g, (value) => {
+    try {
+      const url = new URL(value);
+      return `${url.origin}${url.pathname}`;
+    } catch {
+      return "<REDACTED URL>";
+    }
+  });
   for (const value of [process.env.TEST_CLERK_SECRET_KEY, process.env.TEST_CLERK_PUBLISHABLE_KEY]) {
     if (value) text = text.split(value).join("<REDACTED>");
   }
   return text
     .replace(/\b(?:sk|pk)_(?:test|live)_[A-Za-z0-9_-]+/g, "<REDACTED>")
     .replace(/\beyJ[A-Za-z0-9_.-]+/g, "<REDACTED>")
-    .replace(/Bearer\s+[^\s"<>]+/gi, "Bearer <REDACTED>")
-    .replace(/https?:\/\/[^\s"<>]+/g, (value) => {
-      try {
-        const url = new URL(value);
-        return `${url.origin}${url.pathname}`;
-      } catch {
-        return "<REDACTED URL>";
-      }
-    });
+    .replace(/Bearer\s+[^\s"<>]+/gi, "Bearer <REDACTED>");
 }
 
 export async function reportBrowserFailure({ page }: { page: Page }, info: TestInfo) {
