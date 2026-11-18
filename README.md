@@ -14,6 +14,10 @@ To run `npm test` directly, set `TEST_BASE_URL` explicitly to an isolated test a
 
 Run `node --test tests/admin-browser.test.mjs` with `CHROME_BIN`, `TEST_CLERK_SECRET_KEY`, and `TEST_CLERK_PUBLISHABLE_KEY` set. Use matching keys for a dedicated Clerk **test** instance with email and password sign-in enabled. Docker Compose, Chrome, and access to Clerk are required. The test creates two temporary Clerk users, starts a separate Docker project with its own database and local R2 storage, and deletes the users and project afterward. It never uses an existing admin account. Without these variables, it reports a skip. Cleanup tracks each generated email before creating its user. If a create response is lost, it looks up that email and deletes only users marked with this run's random ID. A hard kill, Clerk outage, or a create that completes after the cleanup lookup can leave users or Docker resources behind. Check the dedicated test instance for leftover `admin-...@example.com` users and Docker for `admin-browser-...` projects; remove leftovers manually. Do not use this test with an instance that contains real users.
 
+### UI checks
+
+Run `npm run build && CHROME_BIN=/usr/bin/google-chrome node --test tests/ui-browser.test.mjs tests/admin-races.test.mjs`. The UI check uses built CSS and fixture data to check page layout at 375, 768, and 1440 pixels, axe accessibility rules, reduced motion, and skip-link focus. It covers the directory, empty and invalid filters, listing details, admin, sign-in layout, and missing pages. It replaces Clerk with a placeholder; it does not test live sign-in or prove full WCAG conformance. The admin test checks slow saves, photo failures, and cancelled delete/discard actions.
+
 `npm run format:check`, `npm run lint`, `npm run typecheck`, and `npm run build` check the code. `npm run format` applies oxfmt. The Compose database password is for the local test container only.
 
 ## Worker setup and limits

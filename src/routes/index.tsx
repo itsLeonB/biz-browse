@@ -1,6 +1,28 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { MapPinIcon, SearchIcon, StoreIcon } from "lucide-react";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+} from "@/components/ui/card";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import {
+  Empty,
+  EmptyHeader,
+  EmptyTitle,
+  EmptyDescription,
+  EmptyContent,
+} from "@/components/ui/empty";
 
 const value = z
   .string()
@@ -59,84 +81,159 @@ function Directory() {
   const filters = Route.useSearch();
   if (!data)
     return (
-      <main>
-        <h1>Direktori Bisnis</h1>
-        <p>Filter tidak valid. Periksa kembali pilihan Anda.</p>
-        <a href="/">Hapus filter</a>
+      <main id="main-content" tabIndex={-1} className="page-shell">
+        <div className="page-intro">
+          <h1>Direktori Bisnis</h1>
+        </div>
+        <Alert variant="destructive">
+          <AlertTitle>Filter tidak valid</AlertTitle>
+          <AlertDescription>
+            Periksa kembali pilihan Anda atau <a href="/">hapus filter</a>.
+          </AlertDescription>
+        </Alert>
       </main>
     );
   return (
-    <main>
-      <h1>Direktori Bisnis</h1>
-      <search>
-        <form method="get" action="/">
-          <label htmlFor="category">Kategori</label>{" "}
-          <select id="category" name="category" defaultValue={filters.category}>
-            <option value="">Semua kategori</option>
-            {data.categories.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}
-              </option>
-            ))}
-          </select>{" "}
-          <label htmlFor="city">Kota/kabupaten</label>{" "}
-          <select id="city" name="city" defaultValue={filters.city}>
-            <option value="">Semua kota/kabupaten</option>
-            {data.cities.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}
-              </option>
-            ))}
-          </select>{" "}
-          <label htmlFor="minPrice">Harga minimum (Rp)</label>{" "}
-          <input
-            id="minPrice"
-            name="minPrice"
-            type="number"
-            min="0"
-            step="1"
-            defaultValue={filters.minPrice}
-          />{" "}
-          <label htmlFor="maxPrice">Harga maksimum (Rp)</label>{" "}
-          <input
-            id="maxPrice"
-            name="maxPrice"
-            type="number"
-            min="0"
-            step="1"
-            defaultValue={filters.maxPrice}
-          />{" "}
-          <button type="submit">Terapkan filter</button> <a href="/">Hapus filter</a>
-        </form>
-      </search>
-      {data.listings.length === 0 ? (
-        <p>Tidak ada bisnis yang sesuai dengan filter.</p>
-      ) : (
-        <ul>
-          {data.listings.map((listing) => (
-            <li key={listing.id}>
-              <a href={`/listings/${listing.id}`}>
-                {listing.photo && (
-                  <img
-                    src={`/api/photos/${listing.photo}`}
-                    alt={`Foto ${listing.business_name}`}
-                    width="240"
-                  />
-                )}
-                <h2>{listing.business_name}</h2>
-              </a>
-              <p>
-                {listing.category} · {listing.city}
-              </p>
-              <p>
-                Harga yang diminta pemilik: Rp{" "}
-                {new Intl.NumberFormat("id-ID").format(BigInt(listing.asking_price))}
-              </p>
-            </li>
-          ))}
-        </ul>
-      )}
-      <a href="/admin">Admin</a>
+    <main id="main-content" tabIndex={-1} className="page-shell">
+      <div className="page-intro">
+        <h1>Temukan bisnis untuk Anda.</h1>
+        <p>
+          Jelajahi bisnis yang dijual di Indonesia. Lihat detail dan harga yang diminta, lalu bicara
+          langsung dengan pemilik.
+        </p>
+      </div>
+      <div className="directory-layout">
+        <search className="filter-panel" aria-label="Filter bisnis">
+          <h2>Sesuaikan pencarian</h2>
+          <form method="get" action="/">
+            <FieldGroup>
+              <Field>
+                <FieldLabel htmlFor="category">Kategori</FieldLabel>
+                <NativeSelect id="category" name="category" defaultValue={filters.category}>
+                  <NativeSelectOption value="">Semua kategori</NativeSelectOption>
+                  {data.categories.map((item) => (
+                    <NativeSelectOption key={item.id} value={item.id}>
+                      {item.name}
+                    </NativeSelectOption>
+                  ))}
+                </NativeSelect>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="city">Kota/kabupaten</FieldLabel>
+                <NativeSelect id="city" name="city" defaultValue={filters.city}>
+                  <NativeSelectOption value="">Semua kota/kabupaten</NativeSelectOption>
+                  {data.cities.map((item) => (
+                    <NativeSelectOption key={item.id} value={item.id}>
+                      {item.name}
+                    </NativeSelectOption>
+                  ))}
+                </NativeSelect>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="minPrice">Harga minimum (Rp)</FieldLabel>
+                <Input
+                  id="minPrice"
+                  name="minPrice"
+                  type="number"
+                  inputMode="numeric"
+                  min="0"
+                  step="1"
+                  defaultValue={filters.minPrice}
+                />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="maxPrice">Harga maksimum (Rp)</FieldLabel>
+                <Input
+                  id="maxPrice"
+                  name="maxPrice"
+                  type="number"
+                  inputMode="numeric"
+                  min="0"
+                  step="1"
+                  defaultValue={filters.maxPrice}
+                />
+              </Field>
+              <div className="flex flex-col gap-2">
+                <Button type="submit">
+                  <SearchIcon aria-hidden="true" data-icon="inline-start" />
+                  Terapkan filter
+                </Button>
+                <a className={buttonVariants({ variant: "ghost" })} href="/">
+                  Hapus filter
+                </a>
+              </div>
+            </FieldGroup>
+          </form>
+        </search>
+        <section aria-labelledby="results-heading" className="min-w-0">
+          <div className="results-heading">
+            <h2 id="results-heading">Bisnis yang tersedia</h2>
+            <p className="muted-copy">
+              {new Intl.NumberFormat("id-ID").format(data.listings.length)} bisnis ditemukan
+            </p>
+          </div>
+          {data.listings.length === 0 ? (
+            <Empty className="border">
+              <EmptyHeader>
+                <EmptyTitle>Tidak ada bisnis yang sesuai dengan filter.</EmptyTitle>
+                <EmptyDescription>Coba kategori, kota, atau rentang harga lain.</EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent>
+                <a className={buttonVariants({ variant: "outline" })} href="/">
+                  Hapus filter
+                </a>
+              </EmptyContent>
+            </Empty>
+          ) : (
+            <ul className="listing-grid">
+              {data.listings.map((listing, index) => (
+                <li key={listing.id} className="listing-card">
+                  <a href={`/listings/${listing.id}`}>
+                    <Card>
+                      {listing.photo ? (
+                        <img
+                          className="listing-photo"
+                          src={`/api/photos/${listing.photo}`}
+                          alt={`Foto ${listing.business_name}`}
+                          width="640"
+                          height="480"
+                          loading={index < 2 ? "eager" : "lazy"}
+                        />
+                      ) : (
+                        <div className="photo-placeholder">
+                          <StoreIcon aria-hidden="true" className="size-8" />
+                          <span>Foto belum tersedia</span>
+                        </div>
+                      )}
+                      <CardHeader>
+                        <Badge variant="secondary">{listing.category}</Badge>
+                        <CardTitle>
+                          <h3 className="line-clamp-2">{listing.business_name}</h3>
+                        </CardTitle>
+                        <CardDescription>
+                          <span className="inline-flex items-center gap-1.5">
+                            <MapPinIcon aria-hidden="true" className="size-4 shrink-0" />
+                            {listing.city}
+                          </span>
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="muted-copy">Harga yang diminta pemilik</p>
+                        <p className="price">
+                          Rp {new Intl.NumberFormat("id-ID").format(BigInt(listing.asking_price))}
+                        </p>
+                      </CardContent>
+                      <CardFooter>
+                        <span>Lihat detail bisnis</span>
+                      </CardFooter>
+                    </Card>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
     </main>
   );
 }
