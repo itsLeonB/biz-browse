@@ -37,3 +37,10 @@ CREATE TABLE pending_photo_deletions (
 );
 CREATE INDEX pending_photo_deletions_created_idx ON pending_photo_deletions(created_at, photo_id);
 CREATE INDEX pending_photo_deletions_retry_idx ON pending_photo_deletions(next_attempt_at, photo_id);
+
+-- Down Migration
+DROP TABLE pending_photo_deletions;
+DROP TABLE listing_photos;
+DROP TABLE listings;
+DROP TABLE cities;
+DROP TABLE categories;

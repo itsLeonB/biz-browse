@@ -29,7 +29,7 @@ test(
     const env = { ...process.env, DATABASE_URL: url };
     const migrate = () => exec(process.execPath, args, { env });
     try {
-      await copyFile("db/001_initial.sql", join(dir, "001_initial.sql"));
+      await copyFile("db/1794983015408_initial.sql", join(dir, "001_initial.sql"));
       await migrate();
       await migrate();
       assert.equal(
@@ -57,7 +57,10 @@ test(
         (await sql.unsafe(`SELECT count(*)::int AS n FROM "${schema}".pgmigrations`))[0].n,
         1,
       );
-      await writeFile(join(dir, "002_failure.sql"), "SELECT pg_sleep(2);\n");
+      await writeFile(
+        join(dir, "002_failure.sql"),
+        "-- Up Migration\nSELECT pg_sleep(2);\n-- Down Migration\nSELECT 1;\n",
+      );
       const first = spawn(process.execPath, args, { env, stdio: "ignore" });
       const firstExit = new Promise((resolve) => first.on("close", resolve));
       let locked = false;
@@ -73,6 +76,24 @@ test(
       assert.equal(
         (await sql.unsafe(`SELECT count(*)::int AS n FROM "${schema}".pgmigrations`))[0].n,
         2,
+      );
+      await exec(process.execPath, [args[0], "down", ...args.slice(2)], { env });
+      await exec(process.execPath, [args[0], "down", ...args.slice(2)], { env });
+      for (const table of [
+        "categories",
+        "cities",
+        "listings",
+        "listing_photos",
+        "pending_photo_deletions",
+      ]) {
+        assert.equal(
+          (await sql`SELECT to_regclass(${schema + "." + table}) AS name`)[0].name,
+          null,
+        );
+      }
+      assert.equal(
+        (await sql.unsafe(`SELECT count(*)::int AS n FROM "${schema}".pgmigrations`))[0].n,
+        0,
       );
     } finally {
       await sql.unsafe(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
