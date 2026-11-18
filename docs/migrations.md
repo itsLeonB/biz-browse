@@ -8,6 +8,11 @@ Create each migration with `npx --no-install node-pg-migrate create NAME --migra
 
 Compose runs migrations before the app starts. `./scripts/test-compose.sh` creates a separate database, runs the same migrations, loads `tests/taxonomy.sql` and `tests/directory.sql`, and removes that test database. The migration integration test uses its own temporary schema when `TEST_MIGRATION_DATABASE_URL` points to an isolated test database. Never point tests at production.
 
+The [approved test rules](help/testing/writing-tests.md#shared-sql-fixtures) move
+shared fixtures to `seeds/test/` in a later code change. The paths above remain
+current until that move. Keep seeds separate from schema migrations, load
+`taxonomy.sql` before `directory.sql`, and use a fresh isolated test database.
+
 The initial migration is for an **empty database**. Its generated filename replaces the earlier unreleased `001_initial.sql`; a database that recorded that name needs a reviewed adoption plan, not a second initial migration. Databases created by the six old SQL files have no runner history. Do not reset them, run the initial migration on them, or mark it as applied without a separate review of their exact schema and data. Back up the database and agree a safe adoption plan first.
 
 ## Production: blocked pending provider checks

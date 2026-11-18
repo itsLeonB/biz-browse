@@ -10,6 +10,15 @@ Buyers can browse and filter published listings without an account. Admins can p
 
 To run `npm test` directly, set `TEST_BASE_URL` explicitly to an isolated test app. The tests write drafts and photos and require the fixtures in `tests/taxonomy.sql` and `tests/directory.sql`. Set `TEST_DATABASE_URL` to that isolated database to test live updates. For the authenticated draft test, also set `TEST_CATEGORY_ID` and `TEST_CITY_ID` to rows in that app's database. To run the browser journey, set `CHROME_BIN` to a Chrome executable and use an app with working Clerk keys; the example keys redirect browsers to a nonexistent Clerk domain.
 
+### Approved test setup (not yet implemented)
+
+The [test rules](docs/help/testing/writing-tests.md#approved-test-setup-not-yet-implemented)
+specify Vitest, React Testing Library with jsdom, Playwright Test, shared SQL
+fixtures in `seeds/test/`, and required Clerk tests on trusted PRs and `main`
+using GitHub Actions secrets. Fork PRs run tests that need no secrets and report
+the missing authenticated coverage. The commands and fixture paths above still
+describe the current setup; the code and CI migration is a separate task.
+
 ### Admin browser test
 
 Run `node --test tests/admin-browser.test.mjs` with `CHROME_BIN`, `TEST_CLERK_SECRET_KEY`, and `TEST_CLERK_PUBLISHABLE_KEY` set. Use matching keys for a dedicated Clerk **test** instance with email and password sign-in enabled. Docker Compose, Chrome, and access to Clerk are required. The test creates two temporary Clerk users, starts a separate Docker project with its own database and local R2 storage, and deletes the users and project afterward. It never uses an existing admin account. Without these variables, it reports a skip. Cleanup tracks each generated email before creating its user. If a create response is lost, it looks up that email and deletes only users marked with this run's random ID. A hard kill, Clerk outage, or a create that completes after the cleanup lookup can leave users or Docker resources behind. Check the dedicated test instance for leftover `admin-...@example.com` users and Docker for `admin-browser-...` projects; remove leftovers manually. Do not use this test with an instance that contains real users.
