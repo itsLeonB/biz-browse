@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { clerk as clerkTesting, clerkSetup } from "@clerk/testing/playwright";
 import { reportBrowserFailure } from "./browser-diagnostics.ts";
 
 import assert from "node:assert/strict";
@@ -14,10 +15,13 @@ test.afterEach(reportBrowserFailure);
 const secret = process.env.TEST_CLERK_SECRET_KEY;
 const publishable = process.env.TEST_CLERK_PUBLISHABLE_KEY;
 
-test.beforeAll(() => {
+test.beforeAll(async () => {
+  test.setTimeout(60_000);
   if (!secret || !publishable)
     throw new Error("Set TEST_CLERK_SECRET_KEY and TEST_CLERK_PUBLISHABLE_KEY");
   validateKeys(secret, publishable);
+  process.env.CLERK_SECRET_KEY = secret;
+  await clerkSetup({ secretKey: secret, publishableKey: publishable, dotenv: false });
 });
 
 test("admin saves a draft and reopens its saved fields after reload", async ({ page }) => {
@@ -98,14 +102,9 @@ test("admin saves a draft and reopens its saved fields after reload", async ({ p
     const port = compose("port", "app", "3107").trim().split(":").at(-1);
     const base = `http://127.0.0.1:${port}`;
     await retry(async () => (await fetch(`${base}/api/drafts`)).status === 403, "test app", 300);
+    await page.goto(base);
+    await clerkTesting.signIn({ page, emailAddress: email });
     await page.goto(`${base}/admin`);
-    await page.locator('input[name="identifier"]').fill(email);
-    await page.getByRole("button", { name: "Continue", exact: true }).click();
-    await page.locator('input[name="password"]').fill(password);
-    await page.getByRole("button", { name: "Continue", exact: true }).click();
-    const emailCheck = page.getByText("Check your email", { exact: true });
-    await expect(page.locator("#business_name").or(emailCheck)).toBeVisible();
-    if (await emailCheck.isVisible()) await page.getByRole("textbox").fill("424242");
     await expect(page.locator("#business_name")).toBeVisible({
       timeout: 30_000,
     });

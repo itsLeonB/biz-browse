@@ -46,7 +46,7 @@ Preserve the setup used by the Compose script and admin browser tests. Never loa
    Keep isolated UI checks and public HTTP/database tests on forks. Never pass secrets to fork code,
    including through `pull_request_target`.
 
-See the README for the two required GitHub Actions test-key secrets and Clerk Test mode setup.
+See the README for the two required GitHub Actions test-key secrets and Clerk test-helper setup.
 
 ## Prove behavior at the owning boundary
 
