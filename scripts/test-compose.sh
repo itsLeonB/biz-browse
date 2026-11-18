@@ -1,5 +1,6 @@
 #!/bin/sh
 set -eu
+umask 077
 cd "$(dirname "$0")/.."
 if [ -z "${ENV_FILE:-}" ]; then
   ENV_FILE=.env
@@ -13,9 +14,12 @@ export ENV_FILE DEV_VARS_FILE
 tmp=$(mktemp -d)
 project="biz-test-$(basename "$tmp" | tr '[:upper:].' '[:lower:]-')"
 cleanup() {
-  docker compose -p "$project" -f compose.test.yaml down --volumes --remove-orphans >/dev/null || true
-  rm -f "$tmp/dev.vars" "$tmp/ports.yaml"
-  rmdir "$tmp"
+  status=$?
+  trap - EXIT
+  docker compose -p "$project" -f compose.test.yaml down --volumes --remove-orphans >/dev/null || status=1
+  rm -f "$tmp/dev.vars" "$tmp/ports.yaml" || status=1
+  rmdir "$tmp" || status=1
+  exit "$status"
 }
 trap cleanup EXIT
 trap 'exit 1' HUP INT TERM

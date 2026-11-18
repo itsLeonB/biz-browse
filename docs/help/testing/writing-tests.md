@@ -82,8 +82,12 @@ duplicate or implementation-coupled proof. Apply the
 Use `package.json` for the current scripts and `README.md` for test setup.
 
 - Run a focused unit test with `npx vitest run tests/<file>.test.ts`.
-- Run `./scripts/test-compose.sh` for tests that need the isolated app, database,
-  and local R2 storage. Its authenticated cases need the Clerk test setup in
-  `README.md`.
+- Run `./scripts/test-compose.sh` for public tests against the isolated app,
+  database, and local R2 storage. Set `TEST_CLERK_SECRET_KEY` and
+  `TEST_CLERK_PUBLISHABLE_KEY`, then run `npm run test:authenticated` for
+  authenticated HTTP tests. It creates temporary users and sessions, obtains fresh
+  tokens for requests, and cleans up users and local resources. A hard kill or
+  provider outage can leave resources behind; inspect and remove them manually.
+  Use only a dedicated Clerk test instance.
 - Run the relevant format, lint, typecheck, and build scripts after changes.
   Report failures and skipped checks with their cause.
