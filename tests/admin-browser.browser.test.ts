@@ -26,7 +26,7 @@ test("admin saves a draft and reopens its saved fields after reload", async ({ p
   const project = `admin-browser-${randomBytes(6).toString("hex")}`;
   const userIds = [];
   const password = `Aa1!${randomBytes(18).toString("hex")}`;
-  const email = `admin-${randomUUID()}@example.com`;
+  const email = `admin-${randomUUID()}+clerk_test@example.com`;
   let composeStarted = false;
   const clerk: ClerkTransport = async (path, options = {}) => {
     const response = await fetch(`https://api.clerk.com/v1${path}`, {
@@ -85,7 +85,7 @@ test("admin saves a draft and reopens its saved fields after reload", async ({ p
     await writeFile(join(dir, "env"), `VITE_CLERK_PUBLISHABLE_KEY=${publishable}\n`, {
       mode: 0o600,
     });
-    for (const address of [email, `admin-${randomUUID()}@example.com`]) {
+    for (const address of [email, `admin-${randomUUID()}+clerk_test@example.com`]) {
       userIds.push(await users.create(address, password));
     }
     await writeFile(
@@ -103,6 +103,9 @@ test("admin saves a draft and reopens its saved fields after reload", async ({ p
     await page.getByRole("button", { name: "Continue", exact: true }).click();
     await page.locator('input[name="password"]').fill(password);
     await page.getByRole("button", { name: "Continue", exact: true }).click();
+    const emailCheck = page.getByText("Check your email", { exact: true });
+    await expect(page.locator("#business_name").or(emailCheck)).toBeVisible();
+    if (await emailCheck.isVisible()) await page.getByRole("textbox").fill("424242");
     await expect(page.locator("#business_name")).toBeVisible({
       timeout: 30_000,
     });

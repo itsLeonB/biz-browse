@@ -41,10 +41,12 @@ Preserve the setup used by the Compose script and admin browser tests. Never loa
    jobs when browser setup or Clerk credentials are missing; do not count a
    skipped required suite as a pass.
 4. Run tests that need no secrets on fork pull requests. State explicitly that
-   authenticated Clerk coverage did not run. Never pass secrets to fork code,
+   the live directory and authenticated Clerk journeys did not run. The directory
+   browser journey needs a valid secret for Clerk's development-instance handshake.
+   Keep isolated UI checks and public HTTP/database tests on forks. Never pass secrets to fork code,
    including through `pull_request_target`.
 
-See the README for the required GitHub Actions variables and secrets.
+See the README for the two required GitHub Actions test-key secrets and Clerk Test mode setup.
 
 ## Prove behavior at the owning boundary
 

@@ -14,17 +14,17 @@ Buyers can browse and filter published listings without an account. Admins can p
 - `npm run test:compose` runs public HTTP and database tests in isolated Docker resources. Shared seeds load taxonomy before directory data. Never point these tests at production.
 - Set `TEST_CLERK_SECRET_KEY` and `TEST_CLERK_PUBLISHABLE_KEY` in your environment, then run `npm run test:authenticated` with Node 26 and Docker. Use matching keys from a dedicated Clerk test instance. The command creates temporary users and sessions, obtains fresh tokens for requests, and deletes users, files, containers, and data. A hard kill or provider outage can leave users or Docker resources; inspect and remove them manually. Do not print or commit keys.
 - Run `npx playwright install --with-deps chromium` and `npm run build` before browser tests. With working Clerk keys in `ENV_FILE` and `DEV_VARS_FILE`, run `./scripts/test-compose.sh --browser-public`. For an existing isolated app, set `TEST_BASE_URL` and run `npm run test:browser -- --project=public`.
-- Set `TEST_CLERK_SECRET_KEY` and `TEST_CLERK_PUBLISHABLE_KEY`, then run `npm run test:browser -- --project=clerk`. Use a dedicated Clerk test instance with email/password sign-in enabled. This test creates temporary users and its own Docker project, and deletes both. A hard kill or Clerk outage can leave `admin-...@example.com` users or `admin-browser-...` Docker projects; inspect and remove leftovers manually.
+- Set `TEST_CLERK_SECRET_KEY` and `TEST_CLERK_PUBLISHABLE_KEY`, then run `npm run test:browser -- --project=clerk`. Use a dedicated Clerk test instance with email/password sign-in and Test mode enabled. The browser uses [`+clerk_test` email addresses and code `424242`](https://clerk.com/docs/guides/development/testing/test-emails-and-phones) for new-device verification; do not disable Client Trust. This test creates temporary users and its own Docker project, and deletes both. A hard kill or Clerk outage can leave `admin-...@example.com` users or `admin-browser-...` Docker projects; inspect and remove leftovers manually.
 
 See [writing tests](docs/help/testing/writing-tests.md) for test boundaries. `npm run format:check`, `npm run lint`, `npm run typecheck`, and `npm run build` check the code.
 
 ### GitHub Actions setup
 
-Set repository variable `TEST_CLERK_PUBLISHABLE_KEY` to the public publishable key of a dedicated Clerk test instance. Fork code can read this variable; never put a secret in it. Trusted pull requests and pushes to `main` also need these repository secrets:
+Trusted pull requests and pushes to `main` need these repository secrets:
 
 - `TEST_CLERK_SECRET_KEY` and `TEST_CLERK_PUBLISHABLE_KEY`: matching keys for the dedicated test instance.
 
-Missing credentials fail the trusted job. Fork pull requests receive no secrets and cannot run authenticated Clerk tests; CI reports that gap. Do not use `pull_request_target` or a Clerk instance containing real users.
+Missing credentials fail the trusted jobs. The public browser journey also needs the secret key because Clerk verifies a development-instance handshake. Fork pull requests receive no secrets: they run HTTP/database and isolated UI checks, but not the live directory or authenticated browser journeys. CI reports that gap. No repository variable is required. Do not use `pull_request_target` or a Clerk instance containing real users.
 
 ## Worker setup and limits
 
