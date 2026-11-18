@@ -1,4 +1,6 @@
 import { test, expect } from "@playwright/test";
+import { reportBrowserFailure } from "./browser-diagnostics.ts";
+
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { randomBytes, randomUUID } from "node:crypto";
@@ -6,6 +8,8 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { testUsers, validateKeys, type ClerkTransport } from "./admin-browser-support.ts";
+
+test.afterEach(reportBrowserFailure);
 
 const secret = process.env.TEST_CLERK_SECRET_KEY;
 const publishable = process.env.TEST_CLERK_PUBLISHABLE_KEY;

@@ -61,6 +61,14 @@ jobs:
           printf 'VITE_CLERK_PUBLISHABLE_KEY=%s\n' "$PUBLIC_CLERK_PUBLISHABLE_KEY" > "$dir/env"
           printf 'CLERK_SECRET_KEY=sk_test_REPLACE_ME\nVITE_CLERK_PUBLISHABLE_KEY=%s\nADMIN_USER_IDS=user_first,user_second\n' "$PUBLIC_CLERK_PUBLISHABLE_KEY" > "$dir/dev.vars"
           ENV_FILE="$dir/env" DEV_VARS_FILE="$dir/dev.vars" ./scripts/test-compose.sh --browser-public
+      - name: Save redacted browser failure details
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-browser-failure
+          path: test-results/**/browser-failure.json
+          if-no-files-found: ignore
+          retention-days: 3
       - name: Report fork auth gap
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
         run: echo 'Authenticated Clerk tests do not run on fork pull requests.' >> "$GITHUB_STEP_SUMMARY"
@@ -91,3 +99,11 @@ jobs:
         run: npm run test:authenticated
       - name: Run authenticated browser tests
         run: npm run test:browser -- --project=clerk
+      - name: Save redacted browser failure details
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: authenticated-browser-failure
+          path: test-results/**/browser-failure.json
+          if-no-files-found: ignore
+          retention-days: 3

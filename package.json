@@ -10,7 +10,7 @@
     "test": "npm run test:unit",
     "test:browser": "playwright test",
     "test:authenticated": "node scripts/test-authenticated.ts",
-    "test:unit": "vitest run tests/admin-browser-support.test.ts tests/clerk-http-support.test.ts tests/auth.test.ts tests/separator.test.ts tests/test-compose.test.ts",
+    "test:unit": "vitest run tests/admin-browser-support.test.ts tests/browser-diagnostics.test.ts tests/clerk-http-support.test.ts tests/auth.test.ts tests/separator.test.ts tests/test-compose.test.ts",
     "test:integration": "vitest run tests/directory.test.ts tests/http.test.ts tests/migrations.test.ts tests/photo-deletion.test.ts tests/photos.test.ts",
     "format": "oxfmt --write src vite.config.ts vitest.config.ts tests scripts seeds playwright.config.ts",
     "test:compose": "./scripts/test-compose.sh",

@@ -1,4 +1,7 @@
 import { test, expect } from "@playwright/test";
+import { reportBrowserFailure } from "./browser-diagnostics.ts";
+
+test.afterEach(reportBrowserFailure);
 
 test("buyer filters the directory and opens a listing", async ({ page }) => {
   const base = process.env.TEST_BASE_URL;

@@ -15,7 +15,7 @@ export default defineConfig({
   ],
   test: {
     include: [
-      "tests/{admin-browser-support,clerk-http-support,auth,separator,test-compose,directory,http,migrations,photo-deletion,photos}.test.ts",
+      "tests/{admin-browser-support,browser-diagnostics,clerk-http-support,auth,separator,test-compose,directory,http,migrations,photo-deletion,photos}.test.ts",
     ],
     fileParallelism: false,
   },

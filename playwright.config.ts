@@ -5,6 +5,8 @@ export default defineConfig({
   testMatch: "**/*.browser.test.ts",
   expect: { timeout: 30_000 },
   use: {
+    actionTimeout: 30_000,
+    navigationTimeout: 45_000,
     launchOptions: process.env.CHROME_BIN ? { executablePath: process.env.CHROME_BIN } : {},
   },
   projects: [
