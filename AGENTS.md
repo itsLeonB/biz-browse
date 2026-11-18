@@ -1,3 +1,7 @@
+## Database migrations
+
+When creating or changing migrations, follow `docs/migrations.md`.
+
 ## Agent skills
 
 ### Issue tracker
