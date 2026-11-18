@@ -16,6 +16,10 @@ project="biz-test-$(basename "$tmp" | tr '[:upper:].' '[:lower:]-')"
 cleanup() {
   status=$?
   trap - EXIT
+  if [ "$status" -ne 0 ]; then
+    docker compose -p "$project" -f compose.test.yaml logs --no-color --tail 80 app 2>/dev/null |
+      node --input-type=module -e 'import { redactBrowserDetails } from "./tests/browser-diagnostics.ts"; let text = ""; for await (const chunk of process.stdin) text += chunk; console.error(redactBrowserDetails(text));' || true
+  fi
   docker compose -p "$project" -f compose.test.yaml down --volumes --remove-orphans >/dev/null || status=1
   rm -f "$tmp/dev.vars" "$tmp/ports.yaml" || status=1
   rmdir "$tmp" || status=1

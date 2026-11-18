@@ -59,6 +59,11 @@ test.each([
     try {
       await mkdir(join(root, "scripts"));
       await mkdir(join(root, "bin"));
+      await mkdir(join(root, "tests"));
+      await copyFile(
+        new URL("./browser-diagnostics.ts", import.meta.url),
+        join(root, "tests/browser-diagnostics.ts"),
+      );
       await copyFile(
         new URL("../scripts/test-compose.sh", import.meta.url),
         join(root, "scripts/test-compose.sh"),
@@ -76,6 +81,7 @@ test.each([
         join(root, "bin/docker"),
         `#!/bin/sh
 case " $* " in
+  *" logs "*) printf 'Server marker sk_test_synthetic\\n' ;;
   *" down "*) [ "\${FAIL_CLEANUP:-}" != 1 ] ;;
   *" up "*)
     printf 'ENV=%s\\n' "$ENV_FILE"
@@ -102,6 +108,8 @@ esac
         assert.notEqual(result.status, 0);
         if (!cleanupFails) {
           assert.match(result.stderr, /Missing CLERK_SECRET_KEY in DEV_VARS_FILE/);
+          assert.match(result.stderr, /Server marker <REDACTED>/);
+          assert.doesNotMatch(result.stderr, /sk_test_synthetic/);
           assert.equal(result.stdout, "");
         }
       } else {

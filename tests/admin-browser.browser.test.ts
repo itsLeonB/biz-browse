@@ -100,9 +100,9 @@ test("admin saves a draft and reopens its saved fields after reload", async ({ p
     await retry(async () => (await fetch(`${base}/api/drafts`)).status === 403, "test app", 300);
     await page.goto(`${base}/admin`);
     await page.locator('input[name="identifier"]').fill(email);
-    await page.locator('button[type="submit"]').click();
+    await page.getByRole("button", { name: "Continue", exact: true }).click();
     await page.locator('input[name="password"]').fill(password);
-    await page.locator('button[type="submit"]').click();
+    await page.getByRole("button", { name: "Continue", exact: true }).click();
     await expect(page.locator("#business_name")).toBeVisible({
       timeout: 30_000,
     });
