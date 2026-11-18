@@ -1,4 +1,4 @@
-import test from "node:test";
+import { test } from "vitest";
 import assert from "node:assert/strict";
 import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
@@ -14,6 +14,7 @@ test(
   "migrations install once, roll back failures, and reject concurrent runs",
   { skip: !url, timeout: 30000 },
   async () => {
+    assert.ok(url, "Set TEST_MIGRATION_DATABASE_URL to an isolated database");
     const schema = `migration_test_${process.pid}_${Date.now()}`;
     const dir = await mkdtemp(join(tmpdir(), "migrations-"));
     const sql = postgres(url, { max: 1 });

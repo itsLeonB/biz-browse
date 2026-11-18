@@ -1,21 +1,31 @@
-import { test } from "node:test";
+import { test } from "vitest";
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import postgres from "postgres";
+
+declare global {
+  var testPhotoBucket:
+    | {
+        put(key: string, bytes: Uint8Array): Promise<void>;
+        get(key: string): Promise<{ body: Uint8Array } | null>;
+        delete(key: string): Promise<void>;
+      }
+    | undefined;
+}
 
 const database = process.env.TEST_DATABASE_URL;
 
 test(
   "photo deletion survives storage failure and protects the last published photo",
   {
-    skip: !database ? "Requires an isolated TEST_DATABASE_URL" : false,
+    skip: !database,
   },
   async () => {
+    assert.ok(database, "Requires an isolated TEST_DATABASE_URL");
     process.env.DATABASE_URL = database;
-    const objects = new Map();
+    const objects = new Map<string, Uint8Array>();
     let failDelete = false;
     let failOnce = false;
-    const failedKeys = new Set();
+    const failedKeys = new Set<string>();
     globalThis.testPhotoBucket = {
       async put(key, bytes) {
         objects.set(key, bytes);
@@ -32,26 +42,12 @@ test(
         objects.delete(key);
       },
     };
-    const hooks = registerHooks({
-      resolve(specifier, context, nextResolve) {
-        if (specifier === "cloudflare:workers") return { url: "test:workers", shortCircuit: true };
-        return nextResolve(specifier, context);
-      },
-      load(url, context, nextLoad) {
-        if (url === "test:workers")
-          return {
-            format: "module",
-            source: "export const env = { PHOTOS: globalThis.testPhotoBucket }",
-            shortCircuit: true,
-          };
-        return nextLoad(url, context);
-      },
-    });
     const sql = postgres(database, { max: 1 });
-    let listing;
+    let listing: { id: string } | undefined;
     try {
       const photos = await import("../src/server/photos.server.ts");
-      [listing] = await sql`INSERT INTO listings DEFAULT VALUES RETURNING id`;
+      [listing] = await sql<{ id: string }[]>`INSERT INTO listings DEFAULT VALUES RETURNING id`;
+      assert.ok(listing);
       const first = await photos.uploadPhoto(listing.id, new Uint8Array([1]), "image/png");
       const second = await photos.uploadPhoto(listing.id, new Uint8Array([2]), "image/png");
       await sql`UPDATE listings SET published = true WHERE id = ${listing.id}`;
@@ -79,12 +75,13 @@ test(
 
       const same = await photos.uploadPhoto(listing.id, new Uint8Array([5]), "image/png");
       const lockSql = postgres(database, { max: 1 });
-      let releaseLock;
-      let locked;
-      const acquired = new Promise((resolve) => (locked = resolve));
-      const release = new Promise((resolve) => (releaseLock = resolve));
+      let releaseLock!: () => void;
+      let locked!: () => void;
+      const acquired = new Promise<void>((resolve) => (locked = resolve));
+      const release = new Promise<void>((resolve) => (releaseLock = resolve));
+      const listingId = listing.id;
       const lock = lockSql.begin(async (tx) => {
-        await tx`SELECT id FROM listings WHERE id = ${listing.id} FOR UPDATE`;
+        await tx`SELECT id FROM listings WHERE id = ${listingId} FOR UPDATE`;
         locked();
         await release;
       });
@@ -140,7 +137,6 @@ test(
         await sql`DELETE FROM listings WHERE id = ${listing.id}`;
       }
       await sql.end();
-      hooks.deregister();
       delete globalThis.testPhotoBucket;
     }
   },

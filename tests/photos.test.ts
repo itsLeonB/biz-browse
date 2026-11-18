@@ -1,12 +1,17 @@
-import { test } from "node:test";
+import { test } from "vitest";
 import assert from "node:assert/strict";
+import { httpAuthHeaders } from "./clerk-http-support";
 
 const base = process.env.TEST_BASE_URL;
 assert.ok(base, "Set TEST_BASE_URL to the isolated test app; see README.md");
-const admin1 = process.env.TEST_ADMIN_1_TOKEN;
-const admin2 = process.env.TEST_ADMIN_2_TOKEN;
-const outsider = process.env.TEST_OUTSIDER_TOKEN;
-const auth = (token) => (token ? { Authorization: `Bearer ${token}` } : {});
+const admin1 = process.env.TEST_ADMIN_1_SESSION_ID;
+const admin2 = process.env.TEST_ADMIN_2_SESSION_ID;
+const outsider = process.env.TEST_OUTSIDER_SESSION_ID;
+const authenticated = process.env.TEST_AUTHENTICATED === "1";
+if (authenticated) {
+  assert.ok(admin1 && admin2 && outsider, "Set all three TEST_*_SESSION_ID values");
+  assert.ok(process.env.TEST_CLERK_SECRET_KEY, "Set TEST_CLERK_SECRET_KEY");
+}
 const origin = new URL(base).origin;
 const draft = {
   id: "",
@@ -32,23 +37,31 @@ const png = Buffer.from(
 test(
   "admins manage private photos; outsiders cannot access them",
   {
-    skip: !(admin1 && admin2 && outsider)
-      ? "Requires three real Clerk session tokens and isolated test resources"
-      : false,
+    skip: !authenticated,
+    timeout: 120_000,
   },
   async () => {
     let response = await fetch(`${base}/api/drafts`, {
       method: "POST",
-      headers: { ...auth(admin1), Origin: origin, "Content-Type": "application/json" },
+      headers: {
+        ...(await httpAuthHeaders(admin1)),
+        Origin: origin,
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify(draft),
     });
     assert.equal(response.status, 200);
-    const { id: listing } = await response.json();
-    const upload = (token, body, type = "image/png", listingId = listing) =>
+    const { id: listing } = (await response.json()) as { id: string };
+    const upload = async (
+      sessionId: string | undefined,
+      body: BodyInit,
+      type = "image/png",
+      listingId = listing,
+    ) =>
       fetch(`${base}/api/photos`, {
         method: "POST",
         headers: {
-          ...auth(token),
+          ...(await httpAuthHeaders(sessionId)),
           Origin: origin,
           "Content-Type": type,
           "X-Listing-Id": listingId,
@@ -63,27 +76,40 @@ test(
     );
     response = await upload(admin1, png);
     assert.equal(response.status, 200);
-    const { id } = await response.json();
+    const { id } = (await response.json()) as { id: string };
     const url = `${base}/api/photos/${id}`;
-    response = await fetch(`${base}/api/photos?listing=${listing}`, { headers: auth(admin2) });
+    response = await fetch(`${base}/api/photos?listing=${listing}`, {
+      headers: await httpAuthHeaders(admin2),
+    });
     assert.deepEqual(await response.json(), [{ id }]);
     assert.equal((await fetch(url)).status, 403);
-    assert.equal((await fetch(url, { headers: auth(outsider) })).status, 403);
+    assert.equal((await fetch(url, { headers: await httpAuthHeaders(outsider) })).status, 403);
     assert.equal(
-      (await fetch(url, { method: "DELETE", headers: { ...auth(outsider), Origin: origin } }))
-        .status,
+      (
+        await fetch(url, {
+          method: "DELETE",
+          headers: { ...(await httpAuthHeaders(outsider)), Origin: origin },
+        })
+      ).status,
       403,
     );
-    response = await fetch(url, { headers: auth(admin2) });
+    response = await fetch(url, { headers: await httpAuthHeaders(admin2) });
     assert.equal(response.status, 200);
     assert.equal(response.headers.get("content-type"), "image/png");
     assert.deepEqual(Buffer.from(await response.arrayBuffer()), png);
     assert.equal(
-      (await fetch(url, { method: "DELETE", headers: { ...auth(admin2), Origin: origin } })).status,
+      (
+        await fetch(url, {
+          method: "DELETE",
+          headers: { ...(await httpAuthHeaders(admin2)), Origin: origin },
+        })
+      ).status,
       204,
     );
-    assert.equal((await fetch(url, { headers: auth(admin1) })).status, 404);
-    response = await fetch(`${base}/api/photos?listing=${listing}`, { headers: auth(admin1) });
+    assert.equal((await fetch(url, { headers: await httpAuthHeaders(admin1) })).status, 404);
+    response = await fetch(`${base}/api/photos?listing=${listing}`, {
+      headers: await httpAuthHeaders(admin1),
+    });
     assert.deepEqual(await response.json(), []);
   },
 );

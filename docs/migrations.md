@@ -6,7 +6,10 @@
 
 Create each migration with `npx --no-install node-pg-migrate create NAME --migrations-dir db --migration-file-language sql`. Fill in both generated `Up Migration` and `Down Migration` sections. Test both directions on an isolated database. Down migrations can destroy data; get approval before running one on an existing database.
 
-Compose runs migrations before the app starts. `./scripts/test-compose.sh` creates a separate database, runs the same migrations, loads `tests/taxonomy.sql` and `tests/directory.sql`, and removes that test database. The migration integration test uses its own temporary schema when `TEST_MIGRATION_DATABASE_URL` points to an isolated test database. Never point tests at production.
+Compose runs migrations before the app starts. `./scripts/test-compose.sh` creates a separate database, runs the same migrations, loads `seeds/test/taxonomy.sql` and `seeds/test/directory.sql`, and removes that test database. The migration integration test uses its own temporary schema when `TEST_MIGRATION_DATABASE_URL` points to an isolated test database. Never point tests at production.
+
+Keep shared fixtures in `seeds/test/`, separate from schema migrations. Load
+`taxonomy.sql` before `directory.sql` on a fresh isolated test database.
 
 The initial migration is for an **empty database**. Its generated filename replaces the earlier unreleased `001_initial.sql`; a database that recorded that name needs a reviewed adoption plan, not a second initial migration. Databases created by the six old SQL files have no runner history. Do not reset them, run the initial migration on them, or mark it as applied without a separate review of their exact schema and data. Back up the database and agree a safe adoption plan first.
 

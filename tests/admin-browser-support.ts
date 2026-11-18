@@ -1,25 +1,25 @@
-import { spawn } from "node:child_process";
+export interface ClerkUser {
+  id: string;
+  private_metadata?: { browser_test_run?: string };
+  email_addresses?: { email_address: string }[];
+}
 
-export function validateKeys(secret, publishable) {
+export type ClerkTransport = (
+  path: string,
+  options?: { method?: "POST" | "DELETE"; body?: string },
+) => Promise<ClerkUser | ClerkUser[] | null | undefined>;
+
+export function validateKeys(secret: string, publishable: string) {
   if (!/^sk_test_[A-Za-z0-9_-]+$/.test(secret)) throw new Error("Use a Clerk test secret key only");
   if (!/^pk_test_[A-Za-z0-9_-]+$/.test(publishable))
     throw new Error("Use a Clerk test publishable key only");
 }
 
-export async function startChrome(executable, args) {
-  const browser = spawn(executable, args, { stdio: "ignore" });
-  await new Promise((resolve, reject) => {
-    browser.once("spawn", resolve);
-    browser.once("error", reject);
-  });
-  return browser;
-}
-
-export function testUsers(clerk, runId) {
-  const users = [];
+export function testUsers(clerk: ClerkTransport, runId: string) {
+  const users: { email: string; id: string | null }[] = [];
   return {
-    async create(email, password) {
-      const entry = { email, id: null };
+    async create(email: string, password: string) {
+      const entry: { email: string; id: string | null } = { email, id: null };
       users.push(entry);
       const user = await clerk("/users", {
         method: "POST",
@@ -30,6 +30,7 @@ export function testUsers(clerk, runId) {
           private_metadata: { browser_test_run: runId },
         }),
       });
+      if (!user || Array.isArray(user)) throw new Error("Invalid Clerk user response");
       entry.id = user.id;
       return user.id;
     },
@@ -37,9 +38,13 @@ export function testUsers(clerk, runId) {
       const failures = [];
       for (const { email, id } of users) {
         try {
-          let ids = id
+          const matches = id
+            ? []
+            : await clerk(`/users?email_address=${encodeURIComponent(email)}`);
+          if (!Array.isArray(matches)) throw new Error("Invalid Clerk user list response");
+          const ids = id
             ? [id]
-            : (await clerk(`/users?email_address=${encodeURIComponent(email)}`))
+            : matches
                 .filter(
                   (user) =>
                     user.private_metadata?.browser_test_run === runId &&
@@ -47,7 +52,9 @@ export function testUsers(clerk, runId) {
                 )
                 .map((user) => user.id);
           for (const userId of ids)
-            await clerk(`/users/${encodeURIComponent(userId)}`, { method: "DELETE" });
+            await clerk(`/users/${encodeURIComponent(userId)}`, {
+              method: "DELETE",
+            });
         } catch {
           failures.push(`Clerk user for ${email}`);
         }

@@ -7,10 +7,15 @@
     "build": "vite build",
     "migrate": "node-pg-migrate up --migrations-dir db --migration-file-language sql",
     "typecheck": "tsc --noEmit",
-    "test": "node --test tests/*.test.mjs",
-    "format": "oxfmt --write src vite.config.ts tests",
-    "format:check": "oxfmt --check src vite.config.ts tests",
-    "lint": "oxlint src vite.config.ts tests scripts"
+    "test": "npm run test:unit",
+    "test:browser": "playwright test",
+    "test:authenticated": "node scripts/test-authenticated.ts",
+    "test:unit": "vitest run tests/admin-browser-support.test.ts tests/browser-diagnostics.test.ts tests/clerk-http-support.test.ts tests/auth.test.ts tests/separator.test.ts tests/test-compose.test.ts",
+    "test:integration": "vitest run tests/directory.test.ts tests/http.test.ts tests/migrations.test.ts tests/photo-deletion.test.ts tests/photos.test.ts",
+    "format": "oxfmt --write src vite.config.ts vitest.config.ts tests scripts seeds playwright.config.ts",
+    "test:compose": "./scripts/test-compose.sh",
+    "format:check": "oxfmt --check src vite.config.ts vitest.config.ts tests scripts seeds playwright.config.ts",
+    "lint": "oxlint src vite.config.ts vitest.config.ts tests scripts seeds playwright.config.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
@@ -26,19 +31,25 @@
     "zod": "^4.0.0"
   },
   "devDependencies": {
+    "@clerk/testing": "^2.3.2",
     "@cloudflare/vite-plugin": "^1.0.0",
+    "@playwright/test": "^1.65.1",
     "@tailwindcss/vite": "^4.3.5",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
     "@types/node": "^26.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^6.0.0",
     "axe-core": "^4.14.1",
+    "jsdom": "^31.0.1",
     "node-pg-migrate": "9.0.0",
     "oxfmt": "^0.78.0",
     "oxlint": "^1.93.0",
     "tailwindcss": "^4.3.5",
     "typescript": "^7.0.0",
     "vite": "^8.0.0",
+    "vitest": "^5.1.1",
     "wrangler": "^4.0.0"
   }
 }

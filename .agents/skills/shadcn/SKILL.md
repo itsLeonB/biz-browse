@@ -202,7 +202,7 @@ When the user asks for a design system from a `DESIGN.md` (or a brand spec), wit
 2. Read the DESIGN.md frontmatter, Do's and Don'ts, and Known Gaps before editing.
 3. Map its tokens onto the shadcn variables in `tailwindCssFile`. Pin the radius scale, shadows, fonts and `type-*` utilities.
 4. Restyle components by editing their `cva` variants. Change control heights together.
-5. Build the design system page per [design-system-page.md](./design-system-page.md): contrast-checked color roles, type specimens, pinned state matrices, edge cases, do/don't pairs, recipes. Check coverage with `scripts/showcase-coverage.mjs`.
+5. Build the design system page per [design-system-page.md](./design-system-page.md): contrast-checked color roles, type specimens, pinned state matrices, edge cases, do/don't pairs, recipes. Check coverage with `scripts/showcase-coverage.ts`.
 6. Verify in a browser: typecheck, no console errors, loads at the top, no horizontal overflow, dark mode.
 
 ## Updating Components

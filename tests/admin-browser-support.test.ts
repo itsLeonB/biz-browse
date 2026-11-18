@@ -1,7 +1,7 @@
-import { test } from "node:test";
+import { test } from "vitest";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { startChrome, testUsers, validateKeys } from "./admin-browser-support.mjs";
+import { testUsers, validateKeys, type ClerkTransport } from "./admin-browser-support.ts";
 
 test("invalid keys do not appear in validation errors", () => {
   for (const [secret, publishable, invalid] of [
@@ -22,32 +22,22 @@ test("browser test output does not reveal an invalid key", () => {
   const key = "sk_live_sensitive_test_value";
   const env = { ...process.env };
   delete env.NODE_TEST_CONTEXT;
-  const result = spawnSync(process.execPath, ["--test", "tests/admin-browser.test.mjs"], {
-    encoding: "utf8",
-    env: {
-      ...env,
-      TEST_CLERK_SECRET_KEY: key,
-      TEST_CLERK_PUBLISHABLE_KEY: "pk_test_valid",
-      CHROME_BIN: "/missing-browser",
+  const result = spawnSync(
+    process.execPath,
+    ["node_modules/@playwright/test/cli.js", "test", "--project=clerk"],
+    {
+      encoding: "utf8",
+      env: {
+        ...env,
+        TEST_CLERK_SECRET_KEY: key,
+        TEST_CLERK_PUBLISHABLE_KEY: "pk_test_valid",
+        CHROME_BIN: "/missing-browser",
+      },
     },
-  });
-  assert.notEqual(result.status, 0);
-  assert.ok(!`${result.stdout}${result.stderr}`.includes(key));
-});
-
-test("Chrome spawn failure reaches cleanup", async () => {
-  let cleaned = false;
-  await assert.rejects(
-    async () => {
-      try {
-        await startChrome("/missing-browser-test-executable", []);
-      } finally {
-        cleaned = true;
-      }
-    },
-    { code: "ENOENT" },
   );
-  assert.equal(cleaned, true);
+  assert.notEqual(result.status, 0);
+  assert.match(`${result.stdout}${result.stderr}`, /Use a Clerk test secret key only/);
+  assert.ok(!`${result.stdout}${result.stderr}`.includes(key));
 });
 
 test("cleanup reconciles uncertain creates without deleting preexisting users", async () => {
@@ -58,8 +48,9 @@ test("cleanup reconciles uncertain creates without deleting preexisting users", 
       private_metadata: {},
     },
   ];
-  const clerk = async (path, options = {}) => {
+  const clerk: ClerkTransport = async (path, options = {}) => {
     if (options.method === "POST") {
+      assert.ok(options.body);
       const body = JSON.parse(options.body);
       records.push({
         id: "created",
@@ -89,6 +80,7 @@ test("cleanup reconciles uncertain creates without deleting preexisting users", 
 test("cleanup reports lookup and delete failures", async () => {
   const users = testUsers(async (path, options = {}) => {
     if (options.method === "POST") {
+      assert.ok(options.body);
       if (JSON.parse(options.body).email_address[0] === "uncertain@example.com")
         throw new Error("lost");
       return { id: "created" };

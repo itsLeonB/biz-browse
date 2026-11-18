@@ -21,7 +21,7 @@ The former GitHub Actions preview pipeline and manual deployment scripts are sup
 ## Verification after separate authorization
 
 1. Record the branch, Preview URL, resource IDs, test time, operator, and evidence for build-secret and branch controls. Do not record secrets. Verify branch creation and updates without a PR, and rejection of unsafe builds.
-2. Verify the deployed Preview's database, role and private bucket. Check Clerk sign-in on its URL, two admin accounts, signed-out and non-allowlisted access, and direct photo requests. Reuse the application and provider checks from #7 and #11, including `tests/http.test.mjs` and `tests/photos.test.mjs` against isolated resources.
+2. Verify the deployed Preview's database, role and private bucket. Check Clerk sign-in on its URL, two admin accounts, signed-out and non-allowlisted access, and direct photo requests. Reuse the application and provider checks from #7 and #11, including `tests/http.test.ts` and `tests/photos.test.ts` against isolated resources.
 3. Compare production database data and photos before and after Preview writes. Record the comparison method and results, failed production authentication, resource bindings, quota and billing limits, skips, and failures. Dashboard settings or a successful connection alone do not prove isolation.
 
 No provider isolation, build-secret scope, Clerk session, production comparison, or quota fit has been verified by this document.

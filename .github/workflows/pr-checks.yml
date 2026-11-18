@@ -1,7 +1,9 @@
-name: Pull request checks
+name: Checks
 
 on:
   pull_request:
+  push:
+    branches: [main]
 
 permissions:
   contents: read
@@ -13,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        check: ["format:check", "lint", "typecheck", "build"]
+        check: ["format:check", "lint", "typecheck", "build", "test:unit"]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -25,11 +27,87 @@ jobs:
       - run: npm ci
       - run: npm run ${{ matrix.check }}
 
-  application-tests:
+  public-tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Run isolated application tests
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - name: Run public HTTP and database tests
         run: ./scripts/test-compose.sh
+      - name: Run browser checks without provider secrets
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        run: npm run test:browser -- --project=public --grep-invert 'buyer filters the directory'
+      - name: Set trusted public key
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          PUBLIC_KEY: ${{ secrets.TEST_CLERK_PUBLISHABLE_KEY }}
+        run: echo "PUBLIC_CLERK_PUBLISHABLE_KEY=$PUBLIC_KEY" >> "$GITHUB_ENV"
+      - name: Run public browser tests
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          TEST_CLERK_SECRET_KEY: ${{ secrets.TEST_CLERK_SECRET_KEY }}
+        run: |
+          set -eu
+          : "${PUBLIC_CLERK_PUBLISHABLE_KEY:?Set the TEST_CLERK_PUBLISHABLE_KEY repository secret}"
+          : "${TEST_CLERK_SECRET_KEY:?Set the TEST_CLERK_SECRET_KEY repository secret}"
+          node --input-type=module -e 'import { validateKeys } from "./tests/admin-browser-support.ts"; validateKeys(process.env.TEST_CLERK_SECRET_KEY, process.env.PUBLIC_CLERK_PUBLISHABLE_KEY);'
+          umask 077
+          dir=$(mktemp -d)
+          trap 'rm -rf "$dir"' EXIT
+          printf 'VITE_CLERK_PUBLISHABLE_KEY=%s\n' "$PUBLIC_CLERK_PUBLISHABLE_KEY" > "$dir/env"
+          printf 'CLERK_SECRET_KEY=%s\nVITE_CLERK_PUBLISHABLE_KEY=%s\nADMIN_USER_IDS=user_first,user_second\n' "$TEST_CLERK_SECRET_KEY" "$PUBLIC_CLERK_PUBLISHABLE_KEY" > "$dir/dev.vars"
+          ENV_FILE="$dir/env" DEV_VARS_FILE="$dir/dev.vars" ./scripts/test-compose.sh --browser-public
+      - name: Save redacted browser failure details
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-browser-failure
+          path: test-results/**/browser-failure.json
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Report fork auth gap
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        run: echo 'Live Clerk-dependent directory and authenticated browser journeys do not run on fork pull requests. Secret-free HTTP/database and isolated UI checks still run.' >> "$GITHUB_STEP_SUMMARY"
+
+  authenticated-tests:
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    env:
+      TEST_CLERK_SECRET_KEY: ${{ secrets.TEST_CLERK_SECRET_KEY }}
+      TEST_CLERK_PUBLISHABLE_KEY: ${{ secrets.TEST_CLERK_PUBLISHABLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Require all authenticated test credentials
+        run: |
+          set -eu
+          for name in TEST_CLERK_SECRET_KEY TEST_CLERK_PUBLISHABLE_KEY; do
+            if [ -z "$(printenv "$name")" ]; then echo "Missing required secret: $name" >&2; exit 1; fi
+          done
+      - name: Run authenticated HTTP and database tests
+        run: npm run test:authenticated
+      - name: Run authenticated browser tests
+        run: npm run test:browser -- --project=clerk
+      - name: Save redacted browser failure details
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: authenticated-browser-failure
+          path: test-results/**/browser-failure.json
+          if-no-files-found: ignore
+          retention-days: 3

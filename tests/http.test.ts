@@ -1,13 +1,22 @@
-import { test } from "node:test";
+import { test } from "vitest";
 import assert from "node:assert/strict";
+import { httpAuthHeaders } from "./clerk-http-support";
 
 const base = process.env.TEST_BASE_URL;
 assert.ok(base, "Set TEST_BASE_URL to the isolated test app; see README.md");
 const endpoint = `${base}/api/drafts`;
-const admin1 = process.env.TEST_ADMIN_1_TOKEN;
-const admin2 = process.env.TEST_ADMIN_2_TOKEN;
-const outsider = process.env.TEST_OUTSIDER_TOKEN;
-const headers = (token) => (token ? { Authorization: `Bearer ${token}` } : {});
+const admin1 = process.env.TEST_ADMIN_1_SESSION_ID;
+const admin2 = process.env.TEST_ADMIN_2_SESSION_ID;
+const outsider = process.env.TEST_OUTSIDER_SESSION_ID;
+const authenticated = process.env.TEST_AUTHENTICATED === "1";
+if (authenticated) {
+  assert.ok(admin1 && admin2 && outsider, "Set all three TEST_*_SESSION_ID values");
+  assert.ok(process.env.TEST_CLERK_SECRET_KEY, "Set TEST_CLERK_SECRET_KEY");
+  assert.ok(
+    process.env.TEST_CATEGORY_ID && process.env.TEST_CITY_ID,
+    "Set TEST_CATEGORY_ID and TEST_CITY_ID",
+  );
+}
 const draft = {
   id: "",
   business_name: "Kedai uji",
@@ -26,11 +35,12 @@ const draft = {
   profit_period: "per bulan",
   profit_meaning: "Setelah biaya operasional",
 };
-async function save(token, value) {
+async function save(sessionId: string | undefined, value: typeof draft) {
+  assert.ok(base);
   return fetch(endpoint, {
     method: "POST",
     headers: {
-      ...headers(token),
+      ...(await httpAuthHeaders(sessionId)),
       "Content-Type": "application/json",
       Origin: new URL(base).origin,
     },
@@ -71,43 +81,43 @@ test("a missing listing is not public", async () => {
 test(
   "both admins can save and reopen a draft; outsiders cannot read or change it",
   {
-    skip: !(
-      admin1 &&
-      admin2 &&
-      outsider &&
-      process.env.TEST_CATEGORY_ID &&
-      process.env.TEST_CITY_ID
-    )
-      ? "Requires three real Clerk session tokens and test taxonomy IDs"
-      : false,
+    skip: !authenticated,
+    timeout: 120_000,
   },
   async () => {
+    assert.ok(base);
     let response = await save(admin1, draft);
     assert.equal(response.status, 200);
-    const { id } = await response.json();
-    response = await fetch(endpoint, { headers: headers(admin2) });
+    const { id } = (await response.json()) as { id: string };
+    response = await fetch(endpoint, { headers: await httpAuthHeaders(admin2) });
     assert.equal(response.status, 200);
-    let stored = (await response.json()).listings.find((item) => item.id === id);
+    let stored = ((await response.json()) as { listings: (typeof draft)[] }).listings.find(
+      (item) => item.id === id,
+    );
+    assert.ok(stored);
     assert.equal(stored.business_name, draft.business_name);
     assert.equal(stored.asking_price, draft.asking_price);
     assert.equal(String(stored.category_id), draft.category_id);
     assert.equal(String(stored.city_id), draft.city_id);
     assert.equal(stored.revenue_meaning, draft.revenue_meaning);
-    assert.equal((await fetch(endpoint, { headers: headers(outsider) })).status, 403);
+    assert.equal((await fetch(endpoint, { headers: await httpAuthHeaders(outsider) })).status, 403);
     assert.equal((await save(outsider, { ...draft, id, business_name: "Tidak sah" })).status, 403);
     response = await save(admin2, { ...draft, id, business_name: "Kedai diperbarui" });
     assert.equal(response.status, 200);
-    response = await fetch(endpoint, { headers: headers(admin1) });
-    stored = (await response.json()).listings.find((item) => item.id === id);
+    response = await fetch(endpoint, { headers: await httpAuthHeaders(admin1) });
+    stored = ((await response.json()) as { listings: (typeof draft)[] }).listings.find(
+      (item) => item.id === id,
+    );
+    assert.ok(stored);
     assert.equal(stored.business_name, "Kedai diperbarui");
     assert.equal((await fetch(`${base}/`)).status, 200);
     assert.doesNotMatch(await (await fetch(`${base}/`)).text(), /Kedai diperbarui/);
     const detail = `${base}/listings/${id}`;
     assert.equal((await fetch(detail)).status, 404);
-    const publish = () =>
+    const publish = async () =>
       fetch(`${endpoint}/${id}/publish`, {
         method: "POST",
-        headers: { ...headers(admin1), Origin: new URL(base).origin },
+        headers: { ...(await httpAuthHeaders(admin1)), Origin: new URL(base).origin },
       });
     assert.equal((await publish()).status, 400); // no photo
     const png = Buffer.from(
@@ -117,7 +127,7 @@ test(
     response = await fetch(`${base}/api/photos`, {
       method: "POST",
       headers: {
-        ...headers(admin1),
+        ...(await httpAuthHeaders(admin1)),
         Origin: new URL(base).origin,
         "Content-Type": "image/png",
         "X-Listing-Id": id,
@@ -125,7 +135,7 @@ test(
       body: png,
     });
     assert.equal(response.status, 200);
-    const photo = (await response.json()).id;
+    const photo = ((await response.json()) as { id: string }).id;
     assert.notEqual((await fetch(`${base}/api/photos/${photo}`)).status, 200);
     for (const field of [
       "business_name",
@@ -180,7 +190,7 @@ test(
     assert.match(await (await fetch(detail)).text(), /Kedai uji/);
     response = await fetch(`${base}/api/photos/${photo}`, {
       method: "DELETE",
-      headers: { ...headers(admin1), Origin: new URL(base).origin },
+      headers: { ...(await httpAuthHeaders(admin1)), Origin: new URL(base).origin },
     });
     assert.equal(response.status, 409);
     assert.deepEqual(await response.json(), { code: "LAST_PUBLISHED_PHOTO" });
@@ -188,7 +198,7 @@ test(
     response = await fetch(`${base}/api/photos`, {
       method: "POST",
       headers: {
-        ...headers(admin2),
+        ...(await httpAuthHeaders(admin2)),
         Origin: new URL(base).origin,
         "Content-Type": "image/png",
         "X-Listing-Id": id,
@@ -196,13 +206,13 @@ test(
       body: png,
     });
     assert.equal(response.status, 200);
-    const addedPhoto = (await response.json()).id;
+    const addedPhoto = ((await response.json()) as { id: string }).id;
     assert.equal((await fetch(`${base}/api/photos/${addedPhoto}`)).status, 200);
     assert.equal(
       (
         await fetch(`${base}/api/photos/${addedPhoto}`, {
           method: "DELETE",
-          headers: { ...headers(admin2), Origin: new URL(base).origin },
+          headers: { ...(await httpAuthHeaders(admin2)), Origin: new URL(base).origin },
         })
       ).status,
       204,
@@ -217,27 +227,28 @@ test(
       200,
     );
     assert.match(await (await fetch(detail)).text(), /Suntingan terakhir/);
-    const unpublish = (token) =>
+    const unpublish = async (token: string | undefined) =>
       fetch(`${endpoint}/${id}/unpublish`, {
         method: "POST",
-        headers: { ...headers(token), Origin: new URL(base).origin },
+        headers: { ...(await httpAuthHeaders(token)), Origin: new URL(base).origin },
       });
     assert.equal((await unpublish(outsider)).status, 403);
     assert.equal((await unpublish(admin2)).status, 200);
     assert.equal((await fetch(detail)).status, 404);
     assert.notEqual((await fetch(`${base}/api/photos/${photo}`)).status, 200);
     assert.equal(
-      (await fetch(`${base}/api/photos/${photo}`, { headers: headers(admin1) })).status,
+      (await fetch(`${base}/api/photos/${photo}`, { headers: await httpAuthHeaders(admin1) }))
+        .status,
       200,
     );
 
     response = await save(admin2, { ...draft, id: "" });
     assert.equal(response.status, 200);
-    const financialId = (await response.json()).id;
+    const financialId = ((await response.json()) as { id: string }).id;
     response = await fetch(`${base}/api/photos`, {
       method: "POST",
       headers: {
-        ...headers(admin2),
+        ...(await httpAuthHeaders(admin2)),
         Origin: new URL(base).origin,
         "Content-Type": "image/png",
         "X-Listing-Id": financialId,
@@ -249,7 +260,7 @@ test(
       (
         await fetch(`${endpoint}/${financialId}/publish`, {
           method: "POST",
-          headers: { ...headers(admin2), Origin: new URL(base).origin },
+          headers: { ...(await httpAuthHeaders(admin2)), Origin: new URL(base).origin },
         })
       ).status,
       200,

@@ -355,8 +355,8 @@ Copy the helpers from `assets/showcase/` (`preview-states.css`, `state-matrix.ts
 ### Coverage check
 
 ```bash
-node <skill-dir>/scripts/showcase-coverage.mjs src/components/ui src   # Vite.
-node <skill-dir>/scripts/showcase-coverage.mjs components/ui app      # Next.js.
+node <skill-dir>/scripts/showcase-coverage.ts src/components/ui src   # Vite.
+node <skill-dir>/scripts/showcase-coverage.ts components/ui app      # Next.js.
 ```
 
 It lists every component file that no showcase file imports. Fix the list until it's empty. `add --all` installs both `toast` and `sonner` in Base UI projects; show `sonner` in Feedback next to `toast` so the list can reach zero.

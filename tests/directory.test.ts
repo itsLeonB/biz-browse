@@ -1,4 +1,4 @@
-import { test } from "node:test";
+import { test } from "vitest";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import postgres from "postgres";
@@ -7,7 +7,7 @@ const base = process.env.TEST_BASE_URL;
 assert.ok(base, "Set TEST_BASE_URL to the isolated test app; see README.md");
 
 test("directory shows only public listing cards and filters them on the server", async () => {
-  const cases = [
+  const cases: [string, string[]][] = [
     ["", ["Warung Mawar Uji", "Salon Melati Uji"]],
     ["?category=2", ["Warung Mawar Uji"]],
     ["?city=3", ["Salon Melati Uji"]],
@@ -19,7 +19,7 @@ test("directory shows only public listing cards and filters them on the server",
     ["?category=9223372036854775807", []],
   ];
   for (const [query, expected] of cases) {
-    const response = await fetch(`${base}/${query}`);
+    const response: Response = await fetch(`${base}/${query}`);
     assert.equal(response.status, 200, query);
     const html = await response.text();
     for (const name of ["Warung Mawar Uji", "Salon Melati Uji"]) {
@@ -42,11 +42,12 @@ test("directory shows only public listing cards and filters them on the server",
 test(
   "directory reads current published data without rebuilding",
   {
-    skip:
-      !process.env.TEST_DATABASE_URL && "Set TEST_DATABASE_URL to the isolated fixture database",
+    skip: !process.env.TEST_DATABASE_URL,
   },
   async () => {
-    const sql = postgres(process.env.TEST_DATABASE_URL, { max: 1 });
+    const database = process.env.TEST_DATABASE_URL;
+    assert.ok(database, "Set TEST_DATABASE_URL to the isolated fixture database");
+    const sql = postgres(database, { max: 1 });
     const id = randomUUID();
     const before = `Warung Lama ${id}`;
     const after = `Warung Baru ${id}`;
