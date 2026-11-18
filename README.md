@@ -20,6 +20,8 @@ Run `npm run build && CHROME_BIN=/usr/bin/google-chrome node --test tests/ui-bro
 
 `npm run format:check`, `npm run lint`, `npm run typecheck`, and `npm run build` check the code. `npm run format` applies oxfmt. The Compose database password is for the local test container only.
 
+Pull requests, including forks, run these checks and `./scripts/test-compose.sh` in GitHub Actions without provider secrets or deployments. The test output lists skipped authenticated and browser tests separately; a passing job does not mean those tests ran.
+
 ## Worker setup and limits
 
 See [dashboard-managed branch Previews](docs/manual-preview.md) for setup and verification. Preview builds remain blocked until trusted-branch and build-secret controls are verified; provider isolation has not been verified.

@@ -2,7 +2,7 @@
 
 **Status: blocked, not verified.** Do not enable Preview Builds until the account's build-secret scope and trusted-branch controls are verified. Cloudflare's [branch documentation](https://developers.cloudflare.com/workers/ci-cd/builds/build-branches/) says enabling Preview Builds builds every non-production branch. It does not establish a trusted-branch allowlist or fork safety. If the actual controls cannot exclude unsafe builds and production credentials, leave affected builds disabled. Runtime isolation does not protect build secrets or deployment tokens from build code.
 
-The former GitHub Actions preview pipeline and manual deployment scripts are superseded and removed. This leaves no GitHub Actions PR checks; replacement credential-free checks are tracked separately in #13. No provider settings, resources, deployment, or database writes are authorized by this guide.
+The former GitHub Actions preview pipeline and manual deployment scripts are superseded and removed. GitHub Actions runs credential-free checks on pull requests; it does not deploy. No provider settings, resources, deployment, or database writes are authorized by this guide.
 
 ## Before enabling builds
 
