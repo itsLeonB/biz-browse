@@ -1,8 +1,8 @@
-import { test } from "node:test";
+import { test } from "vitest";
 import assert from "node:assert/strict";
 import { build } from "esbuild";
 
-test("admin access requires an authenticated user in the configured list", async (t) => {
+test("admin access requires an authenticated user in the configured list", async () => {
   const bundle = await build({
     entryPoints: ["src/server/auth.server.ts"],
     bundle: true,
@@ -46,12 +46,10 @@ test("admin access requires an authenticated user in the configured list", async
       ["empty list", "", true, "user_first", false],
       ["unset list", undefined, true, "user_first", false],
     ]) {
-      await t.test(name, async () => {
-        if (ids === undefined) delete process.env.ADMIN_USER_IDS;
-        else process.env.ADMIN_USER_IDS = ids;
-        globalThis.testClerkSession = { isAuthenticated: authenticated, userId };
-        assert.equal(await isAdmin(), expected);
-      });
+      if (ids === undefined) delete process.env.ADMIN_USER_IDS;
+      else process.env.ADMIN_USER_IDS = ids;
+      globalThis.testClerkSession = { isAuthenticated: authenticated, userId };
+      assert.equal(await isAdmin(), expected, name);
     }
   } finally {
     if (original === undefined) delete process.env.ADMIN_USER_IDS;

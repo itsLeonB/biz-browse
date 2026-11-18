@@ -2,12 +2,7 @@
 
 Adapted from [OpenClaw's test-writing guide](https://github.com/openclaw/openclaw/blob/main/docs/help/testing/writing-tests.md).
 
-## Approved test setup (not yet implemented)
-
-These rules define the target setup. Current scripts still use `node:test`,
-custom Chrome control, and SQL fixtures under `tests/`. Keep using the current
-commands below until the code migration is complete. This docs change does not
-install frameworks, move fixtures, or change CI.
+## Approved test setup
 
 ### Frameworks and test boundaries
 
@@ -27,15 +22,13 @@ A shared fixture is synthetic data loaded before tests. A migration changes the
 schema. SQL that performs a test action, checks a result, or cleans up belongs in
 that test, not in the shared seeds.
 
-Move `tests/taxonomy.sql` and `tests/directory.sql` to `seeds/test/`. Keep schema
+Keep `taxonomy.sql` and `directory.sql` in `seeds/test/`. Keep schema
 migrations in `db/` and per-test SQL with its tests. Do not add a seeder package.
 Load `taxonomy.sql` before `directory.sql` on a fresh isolated database; the
 fixtures are not safe to load twice and tests depend on their generated IDs.
 They create photo metadata, not R2 image objects.
 
-Update the Compose mounts, README instructions, and migration docs in the same
-change as the move. Preserve the setup used by the Compose script and admin
-browser tests. Never load test seeds into production.
+Preserve the setup used by the Compose script and admin browser tests. Never load test seeds into production.
 
 ### Required CI coverage
 
@@ -51,8 +44,7 @@ browser tests. Never load test seeds into production.
    authenticated Clerk coverage did not run. Never pass secrets to fork code,
    including through `pull_request_target`.
 
-Framework compatibility and GitHub Actions secret setup still need checks during
-implementation. A passing current CI run does not prove this target coverage.
+See the README for the required GitHub Actions variables and secrets.
 
 ## Prove behavior at the owning boundary
 
@@ -89,8 +81,7 @@ duplicate or implementation-coupled proof. Apply the
 
 Use `package.json` for the current scripts and `README.md` for test setup.
 
-- Run a focused test with `node --test tests/<file>.test.mjs` when it does not
-  need an application server.
+- Run a focused unit test with `npx vitest run tests/<file>.test.mjs`.
 - Run `./scripts/test-compose.sh` for tests that need the isolated app, database,
   and local R2 storage. Its authenticated cases need the Clerk test setup in
   `README.md`.

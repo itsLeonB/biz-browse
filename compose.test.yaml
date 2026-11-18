@@ -15,9 +15,14 @@ services:
     environment:
       PGPASSWORD: local_test_only
     volumes:
-      - ./tests/taxonomy.sql:/fixtures/taxonomy.sql:ro
-      - ./tests/directory.sql:/fixtures/directory.sql:ro
-    command: ["sh", "-c", "psql -v ON_ERROR_STOP=1 -h db -U directory_test -d directory_test -f /fixtures/taxonomy.sql -f /fixtures/directory.sql"]
+      - ./seeds/test/taxonomy.sql:/fixtures/taxonomy.sql:ro
+      - ./seeds/test/directory.sql:/fixtures/directory.sql:ro
+    command:
+      [
+        "sh",
+        "-c",
+        "psql -v ON_ERROR_STOP=1 -h db -U directory_test -d directory_test -f /fixtures/taxonomy.sql -f /fixtures/directory.sql",
+      ]
   app:
     build: .
     depends_on:
@@ -29,7 +34,13 @@ services:
     volumes:
       - ${DEV_VARS_FILE:-./.dev.vars.example}:/app/.dev.vars:ro
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3107/api/drafts').catch(() => process.exit(1))"]
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3107/api/drafts').catch(() => process.exit(1))",
+        ]
       interval: 2s
       timeout: 3s
       retries: 60
@@ -49,4 +60,4 @@ services:
       TEST_OUTSIDER_TOKEN:
       TEST_CATEGORY_ID: "1"
       TEST_CITY_ID: "1"
-    command: ["npm", "test"]
+    command: ["npm", "run", "test:integration"]

@@ -1,6 +1,5 @@
-import { test } from "node:test";
+import { test } from "vitest";
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import postgres from "postgres";
 
 const database = process.env.TEST_DATABASE_URL;
@@ -32,21 +31,6 @@ test(
         objects.delete(key);
       },
     };
-    const hooks = registerHooks({
-      resolve(specifier, context, nextResolve) {
-        if (specifier === "cloudflare:workers") return { url: "test:workers", shortCircuit: true };
-        return nextResolve(specifier, context);
-      },
-      load(url, context, nextLoad) {
-        if (url === "test:workers")
-          return {
-            format: "module",
-            source: "export const env = { PHOTOS: globalThis.testPhotoBucket }",
-            shortCircuit: true,
-          };
-        return nextLoad(url, context);
-      },
-    });
     const sql = postgres(database, { max: 1 });
     let listing;
     try {
@@ -140,7 +124,6 @@ test(
         await sql`DELETE FROM listings WHERE id = ${listing.id}`;
       }
       await sql.end();
-      hooks.deregister();
       delete globalThis.testPhotoBucket;
     }
   },

@@ -5,7 +5,7 @@ tmp=$(mktemp -d)
 project="biz-test-$(basename "$tmp" | tr '[:upper:].' '[:lower:]-')"
 cleanup() {
   docker compose -p "$project" -f compose.test.yaml down --volumes --remove-orphans >/dev/null || true
-  rm -f "$tmp/dev.vars"
+  rm -f "$tmp/dev.vars" "$tmp/ports.yaml"
   rmdir "$tmp"
 }
 trap cleanup EXIT
@@ -19,5 +19,12 @@ done
 awk '!/^[[:space:]]*(export[[:space:]]+)?DATABASE_URL[[:space:]]*=/' "${DEV_VARS_FILE:-.dev.vars.example}" > "$tmp/dev.vars"
 printf '\nDATABASE_URL=postgres://directory_test:local_test_only@db:5432/directory_test\n' >> "$tmp/dev.vars"
 export DEV_VARS_FILE="$tmp/dev.vars"
-docker compose -p "$project" -f compose.test.yaml up --build -d --wait app
-docker compose -p "$project" -f compose.test.yaml run --build --rm --no-deps test
+if [ "${1:-}" = "--browser-public" ]; then
+  printf 'services:\n  app:\n    ports:\n      - "127.0.0.1::3107"\n' > "$tmp/ports.yaml"
+  docker compose -p "$project" -f compose.test.yaml -f "$tmp/ports.yaml" up --build -d --wait app
+  port=$(docker compose -p "$project" -f compose.test.yaml -f "$tmp/ports.yaml" port app 3107)
+  TEST_BASE_URL="http://$port" npm run test:browser -- --project=public
+else
+  docker compose -p "$project" -f compose.test.yaml up --build -d --wait app
+  docker compose -p "$project" -f compose.test.yaml run --build --rm --no-deps test
+fi

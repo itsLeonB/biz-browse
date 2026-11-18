@@ -8,28 +8,24 @@ Buyers can browse and filter published listings without an account. Admins can p
 2. Run `ENV_FILE=.env DEV_VARS_FILE=./.dev.vars docker compose up --build` and open `http://localhost:3107/admin`. Compose runs the pinned migration runner before starting the app. For an existing database created by the old SQL files, stop: see [migration setup](docs/migrations.md). Do not reset it. Wrangler uses local R2 storage in development. Add category and city rows with `docker compose exec db psql -U directory_test -d directory_test`; these tables are maintained outside the app.
 3. Run `./scripts/test-compose.sh` for HTTP tests. It builds a fresh app, a private PostgreSQL database with test taxonomy rows, and local R2 storage in a separate Compose project. It does not use port 3107 on the host. By default, placeholder Clerk keys let the signed-out tests run; they cannot authenticate users. For the full tests, export `ENV_FILE` and `DEV_VARS_FILE` pointing to files with real Clerk keys and two admin IDs, plus `TEST_ADMIN_1_TOKEN`, `TEST_ADMIN_2_TOKEN`, and `TEST_OUTSIDER_TOKEN` with real Clerk session tokens. The script forces the app to use its isolated database, then removes the test containers and data. Do not commit or print tokens or keys.
 
-To run `npm test` directly, set `TEST_BASE_URL` explicitly to an isolated test app. The tests write drafts and photos and require the fixtures in `tests/taxonomy.sql` and `tests/directory.sql`. Set `TEST_DATABASE_URL` to that isolated database to test live updates. For the authenticated draft test, also set `TEST_CATEGORY_ID` and `TEST_CITY_ID` to rows in that app's database. To run the browser journey, set `CHROME_BIN` to a Chrome executable and use an app with working Clerk keys; the example keys redirect browsers to a nonexistent Clerk domain.
+### Tests
 
-### Approved test setup (not yet implemented)
+- `npm test` or `npm run test:unit` runs the Vitest unit and jsdom component tests. Run one file with `npx vitest run tests/separator.test.mjs`.
+- `npm run test:compose` runs HTTP and database tests in isolated Docker resources. Shared seeds load taxonomy before directory data. Never point these tests at production.
+- Run `npx playwright install --with-deps chromium` and `npm run build` before browser tests. With working Clerk keys in `ENV_FILE` and `DEV_VARS_FILE`, run `./scripts/test-compose.sh --browser-public`. For an existing isolated app, set `TEST_BASE_URL` and run `npm run test:browser -- --project=public`.
+- Set `TEST_CLERK_SECRET_KEY` and `TEST_CLERK_PUBLISHABLE_KEY`, then run `npm run test:browser -- --project=clerk`. Use a dedicated Clerk test instance with email/password sign-in enabled. This test creates temporary users and its own Docker project, and deletes both. A hard kill or Clerk outage can leave `admin-...@example.com` users or `admin-browser-...` Docker projects; inspect and remove leftovers manually.
 
-The [test rules](docs/help/testing/writing-tests.md#approved-test-setup-not-yet-implemented)
-specify Vitest, React Testing Library with jsdom, Playwright Test, shared SQL
-fixtures in `seeds/test/`, and required Clerk tests on trusted PRs and `main`
-using GitHub Actions secrets. Fork PRs run tests that need no secrets and report
-the missing authenticated coverage. The commands and fixture paths above still
-describe the current setup; the code and CI migration is a separate task.
+See [writing tests](docs/help/testing/writing-tests.md) for test boundaries. `npm run format:check`, `npm run lint`, `npm run typecheck`, and `npm run build` check the code.
 
-### Admin browser test
+### GitHub Actions setup
 
-Run `node --test tests/admin-browser.test.mjs` with `CHROME_BIN`, `TEST_CLERK_SECRET_KEY`, and `TEST_CLERK_PUBLISHABLE_KEY` set. Use matching keys for a dedicated Clerk **test** instance with email and password sign-in enabled. Docker Compose, Chrome, and access to Clerk are required. The test creates two temporary Clerk users, starts a separate Docker project with its own database and local R2 storage, and deletes the users and project afterward. It never uses an existing admin account. Without these variables, it reports a skip. Cleanup tracks each generated email before creating its user. If a create response is lost, it looks up that email and deletes only users marked with this run's random ID. A hard kill, Clerk outage, or a create that completes after the cleanup lookup can leave users or Docker resources behind. Check the dedicated test instance for leftover `admin-...@example.com` users and Docker for `admin-browser-...` projects; remove leftovers manually. Do not use this test with an instance that contains real users.
+Set repository variable `TEST_CLERK_PUBLISHABLE_KEY` to the public publishable key of a dedicated Clerk test instance. Fork code can read this variable; never put a secret in it. Trusted pull requests and pushes to `main` also need these repository secrets:
 
-### UI checks
+- `TEST_CLERK_SECRET_KEY` and `TEST_CLERK_PUBLISHABLE_KEY`: matching keys for the dedicated test instance.
+- `TEST_ADMIN_USER_IDS`: comma-separated IDs of two test admins in that instance.
+- `TEST_ADMIN_1_TOKEN`, `TEST_ADMIN_2_TOKEN`, and `TEST_OUTSIDER_TOKEN`: valid Clerk session tokens for those admins and a separate unlisted user.
 
-Run `npm run build && CHROME_BIN=/usr/bin/google-chrome node --test tests/ui-browser.test.mjs tests/admin-races.test.mjs`. The UI check uses built CSS and fixture data to check page layout at 375, 768, and 1440 pixels, axe accessibility rules, reduced motion, and skip-link focus. It covers the directory, empty and invalid filters, listing details, admin, sign-in layout, and missing pages. It replaces Clerk with a placeholder; it does not test live sign-in or prove full WCAG conformance. The admin test checks slow saves, photo failures, and cancelled delete/discard actions.
-
-`npm run format:check`, `npm run lint`, `npm run typecheck`, and `npm run build` check the code. `npm run format` applies oxfmt. The Compose database password is for the local test container only.
-
-Pull requests, including forks, run these checks and `./scripts/test-compose.sh` in GitHub Actions without provider secrets or deployments. The test output lists skipped authenticated and browser tests separately; a passing job does not mean those tests ran.
+Session tokens expire; refresh these secrets before they expire. The HTTP tests do not yet generate tokens. Missing credentials fail the trusted job. Fork pull requests receive no secrets and cannot run authenticated Clerk tests; CI reports that gap. Do not use `pull_request_target` or a Clerk instance containing real users.
 
 ## Worker setup and limits
 
