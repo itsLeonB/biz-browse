@@ -73,7 +73,7 @@ test("admin keeps edits and reports photo and refresh failures correctly", async
       photoError={status:409,body:{code:'LAST_PUBLISHED_PHOTO'}}; button('Hapus foto').click(); await wait(()=>status('Foto terakhir listing publik'));
       photoError={status:409,body:{code:'OTHER'}}; button('Hapus foto').click(); await wait(()=>status('Foto tidak dapat dihapus.'));
       photoError={status:404,body:{}}; button('Hapus foto').click(); await wait(()=>!document.querySelector('img[src="/api/photos/photo"]'));
-      finishPhotos(); await new Promise(r=>setTimeout(r,100)); const stalePhoto=!!document.querySelector('img[src="/api/photos/photo"]');
+      finishPhotos(); await wait(()=>status('Foto tersimpan.') && !button('Unggah foto').disabled); const stalePhoto=!!document.querySelector('img[src="/api/photos/photo"]');
       const selectFile=()=>{const selection=new DataTransfer(); selection.items.add(new File(['x'],'x.png',{type:'image/png'})); file.files=selection.files};
       window.finishPhotos=null; window.delayPhotos=true; selectFile(); button('Unggah foto').click(); await wait(()=>window.finishPhotos);
       const uploadButton=button('Unggah foto'); const uploadDisabled=uploadButton.disabled;
