@@ -27,7 +27,7 @@ test(
       "--create-schema",
     ];
     const env = { ...process.env, DATABASE_URL: url };
-    const migrate = () => exec(process.execPath, args, { env });
+    const migrate = () => exec(process.execPath, args, { env, timeout: 10000 });
     try {
       await copyFile("db/1794983015408_initial.sql", join(dir, "001_initial.sql"));
       await migrate();
@@ -59,19 +59,26 @@ test(
       );
       await writeFile(
         join(dir, "002_failure.sql"),
-        "-- Up Migration\nSELECT pg_sleep(2);\n-- Down Migration\nSELECT 1;\n",
+        `-- Up Migration\nSELECT pg_advisory_xact_lock(1714, ${process.pid});\n-- Down Migration\nSELECT 1;\n`,
       );
-      const first = spawn(process.execPath, args, { env, stdio: "ignore" });
-      const firstExit = new Promise((resolve) => first.on("close", resolve));
-      let locked = false;
-      for (let i = 0; i < 50 && !locked; i++) {
-        await new Promise((resolve) => setTimeout(resolve, 50));
-        locked = (
-          await sql`SELECT EXISTS (SELECT 1 FROM pg_locks WHERE locktype = 'advisory' AND database = (SELECT oid FROM pg_database WHERE datname = current_database()) AND classid = (7241865325823964::bigint >> 32)::oid AND objid = (7241865325823964::bigint & 4294967295)::oid AND objsubid = 1 AND granted) AS locked`
-        )[0].locked;
+      await sql`SELECT pg_advisory_lock(1714, ${process.pid})`;
+      let firstExit;
+      try {
+        const first = spawn(process.execPath, args, { env, stdio: "ignore", timeout: 15000 });
+        firstExit = new Promise((resolve) => first.on("close", resolve));
+        let waiting = false;
+        for (let i = 0; i < 200 && !waiting; i++) {
+          await new Promise((resolve) => setTimeout(resolve, 50));
+          waiting = (
+            await sql`SELECT EXISTS (SELECT 1 FROM pg_locks WHERE locktype = 'advisory' AND database = (SELECT oid FROM pg_database WHERE datname = current_database()) AND classid = 1714 AND objid = ${process.pid} AND objsubid = 2 AND NOT granted) AS waiting`
+          )[0].waiting;
+        }
+        assert.ok(waiting, "first migration reached the barrier");
+        await assert.rejects(migrate(), /Another migration is already running/);
+      } finally {
+        await sql`SELECT pg_advisory_unlock(1714, ${process.pid})`;
+        if (firstExit) await firstExit;
       }
-      assert.ok(locked, "first migration acquired its advisory lock");
-      await assert.rejects(migrate(), /Another migration is already running/);
       assert.equal(await firstExit, 0);
       assert.equal(
         (await sql.unsafe(`SELECT count(*)::int AS n FROM "${schema}".pgmigrations`))[0].n,
