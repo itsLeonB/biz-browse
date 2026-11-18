@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "vite dev --port 3107",
     "build": "vite build",
+    "migrate": "node-pg-migrate up --migrations-dir db --migration-file-language sql",
     "typecheck": "tsc --noEmit",
     "test": "node --test tests/*.test.mjs",
     "format": "oxfmt --write src vite.config.ts tests",
@@ -33,6 +34,7 @@
     "@vitejs/plugin-react": "^6.0.0",
     "axe-core": "^4.14.1",
     "blake3-wasm": "2.1.5",
+    "node-pg-migrate": "9.0.0",
     "oxfmt": "^0.78.0",
     "oxlint": "^1.93.0",
     "tailwindcss": "^4.3.5",

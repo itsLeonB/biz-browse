@@ -10,18 +10,19 @@ services:
       interval: 2s
       timeout: 3s
       retries: 30
-    volumes:
-      - ./db/001_drafts.sql:/docker-entrypoint-initdb.d/001_drafts.sql:ro
-      - ./db/002_photos.sql:/docker-entrypoint-initdb.d/002_photos.sql:ro
-      - ./db/003_publication.sql:/docker-entrypoint-initdb.d/003_publication.sql:ro
-      - ./db/004_price_details.sql:/docker-entrypoint-initdb.d/004_price_details.sql:ro
-      - ./db/005_pending_photo_deletions.sql:/docker-entrypoint-initdb.d/005_pending_photo_deletions.sql:ro
-      - ./db/006_photo_deletion_retry.sql:/docker-entrypoint-initdb.d/006_photo_deletion_retry.sql:ro
-  app:
+  migrate:
     build: .
     depends_on:
       db:
         condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://directory_test:local_test_only@db:5432/directory_test
+    command: ["npm", "run", "migrate"]
+  app:
+    build: .
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
     ports:
       - "127.0.0.1:3107:3107"
     env_file:
