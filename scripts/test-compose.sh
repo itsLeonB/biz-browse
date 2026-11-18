@@ -1,6 +1,15 @@
 #!/bin/sh
 set -eu
 cd "$(dirname "$0")/.."
+if [ -z "${ENV_FILE:-}" ]; then
+  ENV_FILE=.env
+  [ -f "$ENV_FILE" ] || ENV_FILE=.env.example
+fi
+if [ -z "${DEV_VARS_FILE:-}" ]; then
+  DEV_VARS_FILE=./.dev.vars
+  [ -f "$DEV_VARS_FILE" ] || DEV_VARS_FILE=./.dev.vars.example
+fi
+export ENV_FILE DEV_VARS_FILE
 tmp=$(mktemp -d)
 project="biz-test-$(basename "$tmp" | tr '[:upper:].' '[:lower:]-')"
 cleanup() {
@@ -11,12 +20,12 @@ cleanup() {
 trap cleanup EXIT
 trap 'exit 1' HUP INT TERM
 for key in CLERK_SECRET_KEY VITE_CLERK_PUBLISHABLE_KEY; do
-  if ! grep -Eq "^[[:space:]]*$key=[^[:space:]]+" "${DEV_VARS_FILE:-.dev.vars.example}"; then
+  if ! grep -Eq "^[[:space:]]*$key=[^[:space:]]+" "$DEV_VARS_FILE"; then
     echo "Missing $key in DEV_VARS_FILE" >&2
     exit 1
   fi
 done
-awk '!/^[[:space:]]*(export[[:space:]]+)?DATABASE_URL[[:space:]]*=/' "${DEV_VARS_FILE:-.dev.vars.example}" > "$tmp/dev.vars"
+awk '!/^[[:space:]]*(export[[:space:]]+)?DATABASE_URL[[:space:]]*=/' "$DEV_VARS_FILE" > "$tmp/dev.vars"
 printf '\nDATABASE_URL=postgres://directory_test:local_test_only@db:5432/directory_test\n' >> "$tmp/dev.vars"
 export DEV_VARS_FILE="$tmp/dev.vars"
 if [ "${1:-}" = "--browser-public" ]; then

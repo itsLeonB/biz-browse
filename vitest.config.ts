@@ -15,7 +15,7 @@ export default defineConfig({
   ],
   test: {
     include: [
-      "tests/{admin-browser-support,auth,separator,directory,http,migrations,photo-deletion,photos}.test.mjs",
+      "tests/{admin-browser-support,auth,separator,test-compose,directory,http,migrations,photo-deletion,photos}.test.mjs",
     ],
     fileParallelism: false,
   },
