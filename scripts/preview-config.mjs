@@ -5,7 +5,7 @@ try {
   const source = readFileSync(process.argv[2] === "-" ? 0 : process.argv[2], "utf8");
   const mapping = JSON.parse(source);
   const tokens = source.match(
-    /"(?:\\.|[^"\\])*"|[{}\[\]:,]|-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?|true|false|null/g,
+    /"(?:\\.|[^"\\])*"|[{}[\]:,]|-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?|true|false|null/g,
   );
   let index = 0;
   const value = () => {
