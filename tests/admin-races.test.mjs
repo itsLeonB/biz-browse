@@ -133,6 +133,7 @@ test(
       input.value='Edit while saving'; input.dispatchEvent(new Event('input',{bubbles:true})); finishSave(); await wait(()=>!button('Simpan draf').disabled);
       const preserved=input.value, dirty=status('belum tersimpan'), blocked=button('Terbitkan listing tersimpan').disabled;
       window.confirm=()=>false; button('Draf baru').click();
+      await new Promise(resolve=>setTimeout(resolve,0));
       const cancelledDiscard=document.querySelector('#business_name').value==='Edit while saving'; window.confirm=()=>true;
       window.finishSave=null; button('Simpan draf').click(); await wait(()=>window.finishSave); finishSave(); await wait(()=>status('Listing tersimpan.'));
       failRefresh=true; button('Terbitkan listing tersimpan').click(); await wait(()=>status('Daftar tidak dapat dimuat ulang'));
