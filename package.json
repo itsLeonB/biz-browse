@@ -33,7 +33,6 @@
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^6.0.0",
     "axe-core": "^4.14.1",
-    "blake3-wasm": "2.1.5",
     "node-pg-migrate": "9.0.0",
     "oxfmt": "^0.78.0",
     "oxlint": "^1.93.0",
