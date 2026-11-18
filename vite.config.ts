@@ -9,10 +9,7 @@ export default defineConfig({
   server: { allowedHosts: ["app"] },
   resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
   plugins: [
-    cloudflare({
-      configPath: process.env.PREVIEW_WRANGLER_CONFIG,
-      viteEnvironment: { name: "ssr" },
-    }),
+    cloudflare({ viteEnvironment: { name: "ssr" } }),
     tailwindcss(),
     tanstackStart(),
     react(),

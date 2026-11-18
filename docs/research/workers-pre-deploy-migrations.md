@@ -23,7 +23,7 @@ This is a release design, not an existing command: `node-pg-migrate` and a relea
 | **Authorized local release** | A trusted operator runs a checked release script on an isolated host: build without secrets, verify target and source, migrate, then deploy using `&&` or equivalent failure checks. Smallest initial setup, but manual steps, local credentials, concurrent operators and bypasses need controls. |
 | **Worker runtime** | Not recommended. Requests, startup or a newly published Worker do not themselves gate deployment; concurrent invocations and partial failures make migration coordination harder. A separate migration Worker still needs an external gate and privileged runtime credentials. |
 
-The current [`wrangler.jsonc`](../../wrangler.jsonc) has `nodejs_compat`, but no custom build command. [`package.json`](../../package.json) has `vite build` but no migration or deployment script. The [PR workflow](../../.github/workflows/preview-build.yml) builds untrusted source in isolation without provider secrets; its deploy job is `if: false`. Its disabled deploy entry uploads through provider APIs, whereas the separately authorized [manual preview](../manual-preview.md) uses Wrangler. Neither path gains a migration gate merely by changing Wrangler build settings.
+**Superseded:** The GitHub PR preview workflow and manual deployment scripts described in this research were removed in #12. See the current [Preview instructions](../manual-preview.md). Production migration deployment controls remain separate in #14.
 
 ## Example release order
 
@@ -52,7 +52,7 @@ Cloudflare also documents [`pg` with Neon through Hyperdrive](https://developers
 ## Decisions before implementation
 
 1. Choose the authorized release trigger, protected environment and target-specific serialization, including how manual releases are excluded or coordinated.
-2. Choose the trusted source and approval policy for preview migrations; keep untrusted builds and the disabled deploy job unchanged until the existing security review is complete.
+2. For Previews, follow the current manual migration and build-security requirements in the [Preview instructions](../manual-preview.md); the former deploy job has been removed.
 3. Pin and test `node-pg-migrate`, Node and the migration format; decide whether to squash the existing SQL. Verify direct Neon access and role permissions without exposing credentials.
 
 No deployment, database connection, provider isolation check, runtime compatibility test or release workflow test was performed for this report.

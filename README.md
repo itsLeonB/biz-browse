@@ -22,7 +22,7 @@ Run `npm run build && CHROME_BIN=/usr/bin/google-chrome node --test tests/ui-bro
 
 ## Worker setup and limits
 
-See [manual preview preparation and verification](docs/manual-preview.md) for the mapping check and the outstanding deployment and isolation checks. The check is not a guarded deployment path; provider isolation has not been verified.
+See [dashboard-managed branch Previews](docs/manual-preview.md) for setup and verification. Preview builds remain blocked until trusted-branch and build-secret controls are verified; provider isolation has not been verified.
 
 To prepare a Worker deployment:
 
