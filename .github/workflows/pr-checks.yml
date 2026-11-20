@@ -92,6 +92,7 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           playwright: "true"
+      - uses: docker/setup-buildx-action@v3
       - name: Require all authenticated test credentials
         run: |
           set -eu
