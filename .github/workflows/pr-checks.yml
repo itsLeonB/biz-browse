@@ -25,23 +25,32 @@ jobs:
           node-version: 26
           cache: npm
       - run: npm ci
+      - name: Cache TypeScript build info
+        if: matrix.check == 'typecheck'
+        uses: actions/cache@v4
+        with:
+          path: .tsbuildinfo
+          key: ${{ runner.os }}-tsbuildinfo-${{ hashFiles('tsconfig.json', 'package-lock.json') }}
+          restore-keys: ${{ runner.os }}-tsbuildinfo-
+      - name: Cache Vitest/Vite transforms
+        if: matrix.check == 'test:unit'
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules/.vite
+            node_modules/.vitest-cache
+          key: ${{ runner.os }}-vitest-${{ hashFiles('package-lock.json') }}
+          restore-keys: ${{ runner.os }}-vitest-
       - run: npm run ${{ matrix.check }}
 
   public-tests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
         with:
-          persist-credentials: false
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 26
-          cache: npm
-      - run: npm ci
-      - run: npx playwright install --with-deps chromium
-      - run: npm run build
-      - name: Run public HTTP and database tests
-        run: ./scripts/test-compose.sh
+          playwright: "true"
+      - uses: docker/setup-buildx-action@v3
+      - run: ./scripts/test-compose.sh
       - name: Run browser checks without provider secrets
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
         run: npm run test:browser -- --project=public --grep-invert 'buyer filters the directory'
@@ -65,14 +74,10 @@ jobs:
           printf 'VITE_CLERK_PUBLISHABLE_KEY=%s\n' "$PUBLIC_CLERK_PUBLISHABLE_KEY" > "$dir/env"
           printf 'CLERK_SECRET_KEY=%s\nVITE_CLERK_PUBLISHABLE_KEY=%s\nADMIN_USER_IDS=user_first,user_second\n' "$TEST_CLERK_SECRET_KEY" "$PUBLIC_CLERK_PUBLISHABLE_KEY" > "$dir/dev.vars"
           ENV_FILE="$dir/env" DEV_VARS_FILE="$dir/dev.vars" ./scripts/test-compose.sh --browser-public
-      - name: Save redacted browser failure details
+      - uses: ./.github/actions/browser-failure-artifact
         if: failure()
-        uses: actions/upload-artifact@v4
         with:
           name: public-browser-failure
-          path: test-results/**/browser-failure.json
-          if-no-files-found: ignore
-          retention-days: 3
       - name: Report fork auth gap
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
         run: echo 'Live Clerk-dependent directory and authenticated browser journeys do not run on fork pull requests. Secret-free HTTP/database and isolated UI checks still run.' >> "$GITHUB_STEP_SUMMARY"
@@ -84,15 +89,9 @@ jobs:
       TEST_CLERK_SECRET_KEY: ${{ secrets.TEST_CLERK_SECRET_KEY }}
       TEST_CLERK_PUBLISHABLE_KEY: ${{ secrets.TEST_CLERK_PUBLISHABLE_KEY }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
         with:
-          persist-credentials: false
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 26
-          cache: npm
-      - run: npm ci
-      - run: npx playwright install --with-deps chromium
+          playwright: "true"
       - name: Require all authenticated test credentials
         run: |
           set -eu
@@ -103,11 +102,7 @@ jobs:
         run: npm run test:authenticated
       - name: Run authenticated browser tests
         run: npm run test:browser -- --project=clerk
-      - name: Save redacted browser failure details
+      - uses: ./.github/actions/browser-failure-artifact
         if: failure()
-        uses: actions/upload-artifact@v4
         with:
           name: authenticated-browser-failure
-          path: test-results/**/browser-failure.json
-          if-no-files-found: ignore
-          retention-days: 3

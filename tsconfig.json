@@ -7,6 +7,10 @@
     "strict": true,
     "skipLibCheck": true,
     "noEmit": true,
+    "incremental": true,
+    "tsBuildInfoFile": ".tsbuildinfo",
+    "incremental": true,
+    "tsBuildInfoFile": ".tsbuildinfo",
     "types": ["node", "vite/client"],
     "allowImportingTsExtensions": true,
     "paths": { "@/*": ["./src/*"] }

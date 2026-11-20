@@ -1,0 +1,17 @@
+name: Save browser failure details
+description: Upload redacted browser failure artifacts
+
+inputs:
+  name:
+    description: Artifact name
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.name }}
+        path: test-results/**/browser-failure.json
+        if-no-files-found: ignore
+        retention-days: 3
