@@ -24,7 +24,12 @@ services:
         "psql -v ON_ERROR_STOP=1 -h db -U directory_test -d directory_test -f /fixtures/taxonomy.sql -f /fixtures/directory.sql",
       ]
   app:
-    build: .
+    build:
+      context: .
+      cache_from:
+        - type=gha
+      cache_to:
+        - type=gha,mode=max
     depends_on:
       fixtures:
         condition: service_completed_successfully
@@ -48,6 +53,10 @@ services:
     build:
       context: .
       target: test
+      cache_from:
+        - type=gha
+      cache_to:
+        - type=gha,mode=max
     depends_on:
       app:
         condition: service_healthy
