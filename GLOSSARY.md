@@ -1,20 +1,32 @@
-# Business-for-sale directory
+# AlihUsaha
 
-A directory of operating businesses for sale in Indonesia. It helps buyers contact owners; it does not broker or complete sales.
+An Indonesian directory for business acquisitions, operating-outlet takeovers, new franchises or partnerships, and business asset sales. It helps buyers contact sellers; it does not broker or complete sales. Standalone property sales and minority investments are outside its scope.
 
 ## Language
 
 **Business**:
-A whole operating business offered for sale. Minority stakes, asset-only sales, property-only sales, and offers to open a new franchise are outside this scope.
+A whole operating business offered for sale. A new franchise offer or a sale of equipment alone is not a business acquisition.
+
+**Business acquisition**:
+An offer to buy a whole operating business.
+
+**Operating-outlet takeover**:
+An offer to take over an existing operating outlet, rather than open a new one.
+
+**New franchise or partnership**:
+An offer to open a new business under a franchise or partnership arrangement, rather than buy an existing operating business.
+
+**Business asset sale**:
+An offer to buy business equipment or inventory without buying a whole operating business.
 
 **Listing**:
-The description of a business offered for sale, including its asking price, location, photos, and authorized WhatsApp contact.
+The public description of a business acquisition, operating-outlet takeover, new franchise or partnership, or business asset sale.
 
 **Owner**:
 The seller of the business who supplies listing details and permits their public use. An owner is not a broker acting for another seller.
 
 **Buyer**:
-A person who browses businesses for sale and can contact an owner through WhatsApp.
+A person who browses listings and can contact a seller about an offer.
 
 **Asking price**:
 The owner's public price for the business in IDR. It is not a platform valuation.
