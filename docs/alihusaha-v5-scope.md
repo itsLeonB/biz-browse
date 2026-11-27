@@ -1,6 +1,6 @@
 # AlihUsaha v5 scope
 
-Status: agreed interview decisions with proposed acceptance defaults; awaiting final confirmation. This is not approval to implement.
+Status: approved. The design interview is complete, including the completion defaults below. Implementation is a separate task; this approval does not authorize app-code changes.
 
 Reference: `mockups/AlihUsaha_v5_Editorial_Glass.html`.
 
@@ -59,9 +59,9 @@ Seller submissions need admin approval. Seller edits to a published listing crea
 
 Do not invent values, financial figures, stock listing photos, or seller contacts. Do not expand seller eligibility policy in this task.
 
-## Proposed completion defaults
+## Approved completion defaults
 
-These defaults await final confirmation along with the full spec.
+The user approved these defaults with the full spec.
 
 ### Pages and visual design
 
