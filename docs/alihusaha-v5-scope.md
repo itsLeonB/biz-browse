@@ -1,6 +1,6 @@
 # AlihUsaha v5 scope
 
-Status: design interview in progress. This records agreed decisions, not approval to implement.
+Status: agreed interview decisions with proposed acceptance defaults; awaiting final confirmation. This is not approval to implement.
 
 Reference: `mockups/AlihUsaha_v5_Editorial_Glass.html`.
 
@@ -19,7 +19,8 @@ Reference: `mockups/AlihUsaha_v5_Editorial_Glass.html`.
 - Home, explore, and listing detail pages.
 - Keyword search, filters, sorting, favorites, comparison, and saved searches without alerts.
 - Seller submission wizard and seller dashboard.
-- Start with one offer type, still to be selected. The four-type model is the longer-term scope, not a requirement to build all four now.
+- Start with business acquisition: whole operating businesses. Defer outlet takeovers, new franchises or partnerships, and asset-only sales. The four-type model is the longer-term scope, not a requirement to build all four now.
+- Apply this limit to the whole interface, not just the seller wizard: omit unsupported offer types from home categories, filters, forms, and comparison.
 - The v5 visual design, including mobile layouts and supported glass effects.
 
 ## Later releases
@@ -32,7 +33,7 @@ Do not show invented completeness, active-contact, or verification claims. Use n
 
 On enquiry form submission, record an event in PostHog and build a message from the form answers. When the buyer selects the WhatsApp action, open WhatsApp addressed to the seller with that message filled in. The buyer sends it in WhatsApp; the site does not send it automatically.
 
-Buyers can browse and contact sellers without signing in. Accounts are required for cross-device favorites, saved searches, and seller tools.
+Buyers can browse and contact sellers without signing in. Accounts are required for cross-device favorites, saved searches, and seller tools. One account has separate buyer and seller profiles, with only one active at a time. Switching changes the dashboard and available actions, preserves both profiles' data, and does not grant admin access.
 
 PostHog receives event metadata only, such as listing ID, offer type, channel, and action. Do not send buyer names, phone numbers, email addresses, or message text. Form capture and session replay must not expose private fields.
 
@@ -48,13 +49,53 @@ Remove the mockup's confidentiality toggle. Clearly explain which listing detail
 
 Neither a form submission nor a contact click proves message delivery.
 
-## Open decisions
+## Seller form and review
 
-- The first offer type and its seller fields, price meaning, financial disclosures, filters, and comparison rules.
-- Seller account navigation and how admin review handles edits and rejection. Do not expand seller eligibility policy in this task.
-- Exact routes for the new pages.
-- Favorites, saved searches, dashboard contents, and persistence rules.
-- Images, fonts, mobile interactions, accessibility, loading, error recovery, and acceptance checks.
+Use the mockup's acquisition fields, not a union of mockup and MVP form fields. Add only real photo uploads and seller WhatsApp/optional email inputs to replace hard-coded demo values. Do not add separate MVP-only questions.
+
+Keep the acquisition fields shown in the mockup: operating model, scale, listing title, industry, description, city, district, business age, staff, optional monthly revenue and net profit, asking price, included assets, and sale reason. Remove promotion and confidentiality controls. Label monthly figures and their meaning explicitly; do not silently reinterpret old financial data. Preserve existing stored disclosures and validation.
+
+Seller submissions need admin approval. Seller edits to a published listing create a pending revision; the last approved version stays public. Admins can approve or return a submission with a reason. Sellers can unpublish their own listings immediately. Enforce access to each seller's own data on the server, not through the active-profile switch.
+
+Do not invent values, financial figures, stock listing photos, or seller contacts. Do not expand seller eligibility policy in this task.
+
+## Proposed completion defaults
+
+These defaults await final confirmation along with the full spec.
+
+### Pages and visual design
+
+Use `/` for home, `/explore` for discovery, and keep `/listings/$listingId`. Use `/sell` for the wizard and `/dashboard` for the active profile. Keep `/admin` and the existing sign-in route. Preserve old directory filter links through redirects.
+
+Apply the mockup's final v5 appearance: green/cream palette, typography, editorial hero and categories, card layouts, pill buttons, spacing, and selective glass effects. Use its mobile layouts, fallback surfaces, reduced-motion rules, and reduced-transparency rules. Adapt admin and real loading/error states to the same design rather than copy demo behaviour.
+
+Match the mockup except for the explicitly agreed scope changes, truthful claims, and accessibility or production fixes. Use editorial stock imagery only for decorative sections, never to represent an actual listing. Do not invent businesses, service providers, testimonials, or market statistics to fill empty sections.
+
+### Discovery and saved data
+
+Use mockup search, multi-select filters, sorting, active-filter chips, and grid/list controls for supported acquisition data. Hide other offer-type segments and filters. Home categories must link to real supported filters. Preserve the user's filters in explore URLs.
+
+Compare up to three acquisitions, using the mockup comparison layout. Keep comparison selection within the current browser session and preserve it while navigating. Show missing optional figures as not supplied, not zero. Do not compare financial figures with different periods as if they matched.
+
+Save buyer favorites and named search criteria to the account. Saved searches have no alerts. Use only real listing counts; hide unsupported statistics and lead metrics. Buyer dashboard: saved listings and searches. Seller dashboard: owned listings, draft/review status, and listing actions. Hide deferred tabs.
+
+### Recovery and acceptance
+
+Preserve existing publication validation, admin safeguards, upload errors, unsaved-change warnings, and last-photo protection. Add real loading, empty, invalid-input, expired-session, save/upload failure, and retry states where the new workflows need them. Draft saving must survive a page reload.
+
+Check desktop, tablet, and mobile layouts at 1440, 768, and 390 CSS pixels, plus narrow-width overflow. Check keyboard navigation, focus after dialogs and updates, readable contrast, labelled inputs, and usable touch controls. Preserve working controls when blur or motion effects are unavailable or disabled.
+
+Test acquisition discovery, saved state across profile switches and reloads, seller ownership isolation, submission/revision approval, unpublication, anonymous message handoff, encoded WhatsApp/email links, and analytics opt-out/failure. Check that private enquiry values never reach analytics or replay capture and that no event claims delivery.
+
+Use the existing test stack. No new package is needed merely to reproduce the mockup's CSS. Keep any runtime additions limited to features approved here, including PostHog.
+
+## Delivery boundaries
+
+This is a product expansion and a visual redesign, not a stylesheet-only change. Implementation will need account-owned data, seller drafts and review revisions, saved items/searches, acquisition discovery data, optional seller email, and analytics controls. Follow `docs/migrations.md` for schema work.
+
+Build in small parts: shared v5 layout and public pages; discovery; profiles and saved data; seller submission and review; contact analytics and end-to-end checks. Keep existing listing links and stored data intact. Do not assume old admin-created listings belong to a newly signed-in seller.
+
+A calendar estimate needs an implementation breakdown; this interview does not establish one.
 
 ## Evidence from the current app
 

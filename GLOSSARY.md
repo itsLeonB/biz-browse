@@ -28,6 +28,15 @@ The seller of the business who supplies listing details and permits their public
 **Buyer**:
 A person who browses listings and can contact a seller about an offer.
 
+**Buyer profile**:
+The buyer side of an account, with its saved listings and saved searches.
+
+**Seller profile**:
+The seller side of the same account, with its own listings and submissions.
+
+**Active profile**:
+The buyer or seller profile currently in use. Only one profile is active at a time; switching preserves the data in both profiles and does not grant admin access.
+
 **Asking price**:
 The owner's public price for the business in IDR. It is not a platform valuation.
 _Avoid_: Valuation
